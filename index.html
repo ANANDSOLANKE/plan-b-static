@@ -1,18 +1,26 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>StockPricePredictions — Shree Yantra Signals</title>
-  <meta name="description" content="Vedic-themed stock predictor with real OHLC data, autocomplete, and trending.">
-  <link rel="icon" type="image/png" href="logo.png">
-  <link rel="stylesheet" href="style.css">
+  <meta name="description" content="Vedic-themed stock predictor with real OHLC data, autocomplete, and trending." />
+
+  <!-- Favicon (your logo in repo root) -->
+  <link rel="icon" type="image/png" href="logo.png" />
+
+  <!-- Your styles & scripts -->
+  <link rel="stylesheet" href="style.css" />
+
+  <!-- AdSense: account (auto-ads will work even if you haven't created slots yet) -->
+  <meta name="google-adsense-account" content="ca-pub-6957786074161829" />
+  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6957786074161829" crossorigin="anonymous"></script>
 </head>
 <body>
   <header class="site-header">
     <div class="wrap header-row">
       <div class="brand">
-        <img class="logo" src="logo.png" alt="Stock Price Predictions Logo">
+        <img class="logo" src="logo.png" alt="Stock Price Predictions Logo" />
         <div>
           <h1>Shree Yantra <span>Stock Predictor</span></h1>
           <p class="tag">Vedic-inspired signals • Real OHLC • Free</p>
@@ -25,6 +33,17 @@
         <a href="/contact.html">Contact</a>
       </nav>
     </div>
+
+    <!-- Header Display Ad (Responsive) -->
+    <div class="wrap" style="margin-top:8px;">
+      <ins class="adsbygoogle"
+           style="display:block"
+           data-ad-client="ca-pub-6957786074161829"
+           data-ad-slot="1111111111"   <!-- TODO: replace with your real slot ID -->
+           data-ad-format="auto"
+           data-full-width-responsive="true"></ins>
+      <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
+    </div>
   </header>
 
   <main class="wrap grid">
@@ -33,13 +52,22 @@
 
       <div class="search-stack">
         <div class="row">
-          <input id="ticker" placeholder="Type company or ticker (e.g., Tata Motors, RELIANCE.NS, AAPL)">
+          <input id="ticker" placeholder="Type company or ticker (e.g., Tata Motors, RELIANCE.NS, AAPL)" />
           <button id="go" class="btn">Analyze</button>
         </div>
         <div id="suggestBox" class="suggest hidden" role="listbox" aria-label="Suggestions"></div>
       </div>
 
-      <div class="ad ad-incontent"></div>
+      <!-- In-Content Display Ad (Responsive) -->
+      <div style="margin:14px 0;">
+        <ins class="adsbygoogle"
+             style="display:block"
+             data-ad-client="ca-pub-6957786074161829"
+             data-ad-slot="2222222222"   <!-- TODO: replace with your real slot ID -->
+             data-ad-format="auto"
+             data-full-width-responsive="true"></ins>
+        <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
+      </div>
 
       <div id="card" class="card hidden" aria-live="polite">
         <div class="card-head">
@@ -57,24 +85,54 @@
     </section>
 
     <aside class="side">
-      <div class="ad ad-side"></div>
-      <div class="card trending">
+      <!-- Sidebar Ad #1 (Responsive) -->
+      <ins class="adsbygoogle"
+           style="display:block"
+           data-ad-client="ca-pub-6957786074161829"
+           data-ad-slot="3333333333"   <!-- TODO: replace with your real slot ID -->
+           data-ad-format="auto"
+           data-full-width-responsive="true"></ins>
+      <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
+
+      <div class="card trending" style="margin-top:16px;">
         <div class="card-head"><h3>🔥 Trending</h3></div>
         <ul id="trendList" class="trend-list"><li>Loading…</li></ul>
       </div>
-      <div class="ad ad-side-tall"></div>
+
+      <!-- Sidebar Ad #2 (Responsive) -->
+      <div style="margin-top:16px;">
+        <ins class="adsbygoogle"
+             style="display:block"
+             data-ad-client="ca-pub-6957786074161829"
+             data-ad-slot="4444444444"   <!-- TODO: replace with your real slot ID -->
+             data-ad-format="auto"
+             data-full-width-responsive="true"></ins>
+        <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
+      </div>
     </aside>
   </main>
 
+  <!-- Sticky bottom ad (Anchor-style responsive) -->
   <div class="sticky-ad">
-    <div class="wrap"><div class="ad ad-sticky"></div></div>
+    <div class="wrap">
+      <ins class="adsbygoogle"
+           style="display:block"
+           data-ad-client="ca-pub-6957786074161829"
+           data-ad-slot="5555555555"   <!-- TODO: replace with your real slot ID -->
+           data-ad-format="auto"
+           data-full-width-responsive="true"></ins>
+      <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
+    </div>
   </div>
 
   <footer class="wrap footer">
     <p>© 2025 StockPricePredictions.com • Signals are informational only • <a href="/privacy.html">Privacy</a></p>
   </footer>
 
-  <script>window.API_BASE="https://api.stockpricepredictions.com";</script>
+  <!-- Your API base (Plan-B: API on Render) -->
+  <script>window.API_BASE = "https://api.stockpricepredictions.com";</script>
+
+  <!-- Your app logic -->
   <script src="script.js"></script>
 </body>
 </html>
