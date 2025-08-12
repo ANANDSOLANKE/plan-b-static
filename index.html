@@ -9,10 +9,10 @@
   <!-- Favicon (your logo in repo root) -->
   <link rel="icon" type="image/png" href="logo.png" />
 
-  <!-- Your styles & scripts -->
+  <!-- Site styles -->
   <link rel="stylesheet" href="style.css" />
 
-  <!-- AdSense: account (auto-ads will work even if you haven't created slots yet) -->
+  <!-- Google AdSense (Auto Ads only) -->
   <meta name="google-adsense-account" content="ca-pub-6957786074161829" />
   <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6957786074161829" crossorigin="anonymous"></script>
 </head>
@@ -33,17 +33,6 @@
         <a href="/contact.html">Contact</a>
       </nav>
     </div>
-
-    <!-- Header Display Ad (Responsive) -->
-    <div class="wrap" style="margin-top:8px;">
-      <ins class="adsbygoogle"
-           style="display:block"
-           data-ad-client="ca-pub-6957786074161829"
-           data-ad-slot="1111111111"   <!-- TODO: replace with your real slot ID -->
-           data-ad-format="auto"
-           data-full-width-responsive="true"></ins>
-      <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
-    </div>
   </header>
 
   <main class="wrap grid">
@@ -58,17 +47,7 @@
         <div id="suggestBox" class="suggest hidden" role="listbox" aria-label="Suggestions"></div>
       </div>
 
-      <!-- In-Content Display Ad (Responsive) -->
-      <div style="margin:14px 0;">
-        <ins class="adsbygoogle"
-             style="display:block"
-             data-ad-client="ca-pub-6957786074161829"
-             data-ad-slot="2222222222"   <!-- TODO: replace with your real slot ID -->
-             data-ad-format="auto"
-             data-full-width-responsive="true"></ins>
-        <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
-      </div>
-
+      <!-- Result card -->
       <div id="card" class="card hidden" aria-live="polite">
         <div class="card-head">
           <h3 id="cTicker">—</h3>
@@ -85,54 +64,21 @@
     </section>
 
     <aside class="side">
-      <!-- Sidebar Ad #1 (Responsive) -->
-      <ins class="adsbygoogle"
-           style="display:block"
-           data-ad-client="ca-pub-6957786074161829"
-           data-ad-slot="3333333333"   <!-- TODO: replace with your real slot ID -->
-           data-ad-format="auto"
-           data-full-width-responsive="true"></ins>
-      <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
-
-      <div class="card trending" style="margin-top:16px;">
+      <div class="card trending">
         <div class="card-head"><h3>🔥 Trending</h3></div>
         <ul id="trendList" class="trend-list"><li>Loading…</li></ul>
       </div>
-
-      <!-- Sidebar Ad #2 (Responsive) -->
-      <div style="margin-top:16px;">
-        <ins class="adsbygoogle"
-             style="display:block"
-             data-ad-client="ca-pub-6957786074161829"
-             data-ad-slot="4444444444"   <!-- TODO: replace with your real slot ID -->
-             data-ad-format="auto"
-             data-full-width-responsive="true"></ins>
-        <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
-      </div>
     </aside>
   </main>
-
-  <!-- Sticky bottom ad (Anchor-style responsive) -->
-  <div class="sticky-ad">
-    <div class="wrap">
-      <ins class="adsbygoogle"
-           style="display:block"
-           data-ad-client="ca-pub-6957786074161829"
-           data-ad-slot="5555555555"   <!-- TODO: replace with your real slot ID -->
-           data-ad-format="auto"
-           data-full-width-responsive="true"></ins>
-      <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
-    </div>
-  </div>
 
   <footer class="wrap footer">
     <p>© 2025 StockPricePredictions.com • Signals are informational only • <a href="/privacy.html">Privacy</a></p>
   </footer>
 
-  <!-- Your API base (Plan-B: API on Render) -->
+  <!-- Plan-B API base (Render) -->
   <script>window.API_BASE = "https://api.stockpricepredictions.com";</script>
 
-  <!-- Your app logic -->
+  <!-- App logic -->
   <script src="script.js"></script>
 </body>
 </html>
