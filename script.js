@@ -113,7 +113,7 @@
   async function loadTrending(){
     try{
       const r = await fetch(API + '/trending?region=IN');
-      const d = await res.json();
+      const d = await r.json();
       const ul = $('trendList');
       ul.innerHTML = '';
       const list = (d.results||[]).slice(0,10);
