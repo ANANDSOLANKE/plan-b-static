@@ -14,7 +14,7 @@
   let lastQ = "";
   let timer = null;
 
-  /* ---------- Suggestions (typeahead) ---------- */
+  /* ---------- Suggestions ---------- */
   function showSuggest(show){ box && box.classList.toggle('hidden', !show || items.length === 0); }
   function clearSuggest(){ items = []; if(box){ box.innerHTML = ""; box.classList.add('hidden'); } activeIdx = -1; }
   function renderSuggest() {
@@ -124,8 +124,8 @@
     }
   }
 
-  /* ---------- World indices ticker ---------- */
-  const TICKER_SYMBOLS = [
+  /* ---------- World indices (flip board) ---------- */
+  const INDICES = [
     {name:'S&P 500',      sym:'^GSPC'},
     {name:'Dow Jones',    sym:'^DJI'},
     {name:'Nasdaq 100',   sym:'^NDX'},
@@ -149,50 +149,56 @@
       const op = Number(d.open);
       const chg = px - op;
       const pct = op ? (chg/op*100) : 0;
-      return {
-        name: symObj.name,
-        price: isFinite(px) ? px.toFixed(2) : '-',
-        chg: isFinite(chg) ? chg.toFixed(2) : '0.00',
-        pct: isFinite(pct) ? pct.toFixed(2) : '0.00',
-        up: chg >= 0
-      };
+      return { name:symObj.name, price:isFinite(px)?px.toFixed(2):'-', chg:isFinite(chg)?chg.toFixed(2):'0.00', pct:isFinite(pct)?pct.toFixed(2):'0.00', up: chg>=0 };
     }catch(e){
-      return {name: symObj.name, price:'-', chg:'0.00', pct:'0.00', up:false};
+      return {name:symObj.name, price:'-', chg:'0.00', pct:'0.00', up:false};
     }
   }
 
-  async function buildTicker(){
-    const track = $('tickerTrack');
-    if(!track) return;
-    track.innerHTML = 'Loading markets...';
+  async function loadIndices(){
+    const grid = $('indicesGrid');
+    if(!grid) return;
+    grid.innerHTML = '';
 
-    // fetch sequentially to avoid burst (lighter on API); ~12 calls
     const rows = [];
-    for (const s of TICKER_SYMBOLS){
-      /* eslint-disable no-await-in-loop */
-      const data = await fetchOne(s);
-      rows.push(data);
+    for(const s of INDICES){ /* eslint-disable no-await-in-loop */
+      rows.push(await fetchOne(s));
     }
 
-    // Build one pass of items
-    const pass = rows.map(d => `
-      <div class="ti">
-        <span class="nm">${d.name}</span>
-        <span class="px">${d.price}</span>
-        <span class="chg ${d.up ? 'up' : 'down'}">
-          ${d.up ? '▲' : '▼'} ${d.chg} (${d.up ? '+' : ''}${d.pct}%)
-        </span>
-      </div>
-    `).join('<span>&nbsp;&nbsp;</span>');
-
-    // Duplicate content to enable seamless scroll
-    track.innerHTML = pass + pass;
+    // Build tiles
+    rows.forEach((d, idx) => {
+      const tile = document.createElement('div');
+      tile.className = 'tile';
+      tile.innerHTML = `
+        <div class="tile-inner">
+          <div class="face front">
+            <div class="tnm">${d.name}</div>
+            <div class="tchg ${d.up ? 'up' : 'down'}">${d.up ? '▲' : '▼'} ${d.chg} (${d.up?'+':''}${d.pct}%)</div>
+            <div class="tpx">${d.price}</div>
+          </div>
+          <div class="face back">
+            <div class="tnm">${d.name}</div>
+            <div class="tchg ${d.up ? 'up' : 'down'}">${d.up ? '▲' : '▼'} ${d.chg} (${d.up?'+':''}${d.pct}%)</div>
+            <div class="tpx">${d.price}</div>
+          </div>
+        </div>
+      `;
+      grid.appendChild(tile);
+    });
   }
 
-  // Initial load after page is interactive
-  window.addEventListener('load', buildTicker);
-  // Refresh every 5 minutes (adjust if you want fewer API calls)
-  setInterval(buildTicker, 5 * 60 * 1000);
+  function flipAll(){
+    const grid = $('indicesGrid'); if(!grid) return;
+    const tiles = grid.querySelectorAll('.tile');
+    tiles.forEach(t => t.classList.toggle('flip'));
+  }
+
+  // Initial build after page load, refresh data every 10 minutes
+  window.addEventListener('load', async () => {
+    await loadIndices();
+    setInterval(loadIndices, 10 * 60 * 1000);
+    setInterval(flipAll, 4000); // “airport” flap every 4s
+  });
 
   /* ---------- Events ---------- */
   if(input){
