@@ -14,7 +14,6 @@
   let lastQ = "";
   let timer = null;
 
-  /* ---------- Suggestions (typeahead) ---------- */
   function showSuggest(show){ box && box.classList.toggle('hidden', !show || items.length === 0); }
   function clearSuggest(){ items = []; if(box){ box.innerHTML = ""; box.classList.add('hidden'); } activeIdx = -1; }
   function renderSuggest() {
@@ -73,7 +72,6 @@
     else if (e.key === 'Escape') { clearSuggest(); }
   }
 
-  /* ---------- Signal rendering ---------- */
   function setSignal(up, bindu){
     const chip = $('cSignal');
     if (chip){
@@ -83,22 +81,21 @@
 
     const note = $('predNote');
     if (note){
-      note.classList.remove('up','down');         // reset classes
-      note.classList.add(up ? 'up' : 'down');     // green blink if up, red blink if down
+      note.classList.remove('up','down');
+      note.classList.add(up ? 'up' : 'down');
       note.textContent = 'Prediction For Next Day: ' + (up ? '▲ Price Up (1)' : '▼ Price Down (0)');
     }
   }
 
-  /* ---------- Core run: fetch OHLC + compute bindu ---------- */
   async function run(){
     const q = (input?.value||'').trim();
     if(!q){ alert('Enter a company or ticker'); return; }
 
     if(card) card.classList.remove('hidden');
     setText('cTicker', 'Fetching… ' + q.toUpperCase());
-    setText('cOpen','—'); setText('cHigh','—'); setText('cLow','—'); setText('cClose','—');
-    const sig = $('cSignal'); if(sig){ sig.className = 'chip'; sig.textContent = 'Loading…'; }
-    setText('predNote', 'Prediction For Next Day: …');
+    setText('cOpen','-'); setText('cHigh','-'); setText('cLow','-'); setText('cClose','-');
+    const sig = $('cSignal'); if(sig){ sig.className = 'chip'; sig.textContent = 'Loading...'; }
+    setText('predNote', 'Prediction For Next Day: -');
 
     try{
       const r = await fetch(API + '/stock?q=' + encodeURIComponent(q));
@@ -112,7 +109,6 @@
       setText('cLow',  Number(low).toFixed(2));
       setText('cClose',Number(close).toFixed(2));
 
-      // Yantra math
       const o=open%9, h=high%9, l=low%9, c=close%9;
       const layer1=(o+c)%9, layer2=(h-l+9)%9, bindu=(layer1*layer2)%9;
       const up = bindu >= 5;
@@ -120,12 +116,11 @@
     }catch(e){
       setText('cTicker', 'Error');
       const chip = $('cSignal'); if(chip){ chip.className='chip down'; chip.textContent='Failed to fetch'; }
-      setText('predNote', 'Prediction For Next Day: —');
+      setText('predNote', 'Prediction For Next Day: -');
       console.error(e);
     }
   }
 
-  /* ---------- Events ---------- */
   if(input){
     input.addEventListener('input', onType);
     input.addEventListener('keydown', onKeyDown);
@@ -134,5 +129,4 @@
   }
   if(go) go.addEventListener('click', run);
 
-  // No trending loader (removed)
 })();
