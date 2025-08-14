@@ -1,6 +1,7 @@
 :root{
   --bg:#0c1021; --card:#121736; --muted:#94a2c9; --text:#eaf0ff;
   --gold1:#ffd166; --gold2:#fca311; --accent:#ffd166;
+  --green:#31f09f; --red:#ff7a7a;
 }
 
 *{box-sizing:border-box}
@@ -10,7 +11,7 @@ body{
   font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Arial;
   background:radial-gradient(1200px 600px at 10% -10%,#1a1f3b 0,#0c1021 40%) no-repeat,var(--bg);
   color:var(--text);
-  padding-bottom:110px; /* space for fixed footer */
+  padding-bottom:160px; /* space for fixed footer + ticker */
 }
 a{color:#cbd6ff;text-decoration:none}
 
@@ -70,8 +71,8 @@ h1 span{color:var(--gold1)}
 .card{background:#0a0f22;border:1px solid #ffffff10;border-radius:14px;padding:16px}
 .card-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px}
 .chip{padding:6px 12px;border-radius:999px;font-weight:800;font-size:13px;border:1px solid #ffffff22}
-.chip.up{background:#052d1a;color:#31f09f;border-color:#1e9c6d}
-.chip.down{background:#2b0a0a;color:#ff7a7a;border-color:#aa2f2f}
+.chip.up{background:#052d1a;color:var(--green);border-color:#1e9c6d}
+.chip.down{background:#2b0a0a;color:var(--red);border-color:#aa2f2f}
 
 .ohlc{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
 @media (max-width:640px){.ohlc{grid-template-columns:repeat(2,1fr)}}
@@ -82,8 +83,29 @@ h1 span{color:var(--gold1)}
 /* Prediction note + blinking colors */
 .pred-note{margin-top:14px;font-size:22px;font-weight:900}
 @keyframes blink{0%,100%{opacity:1}50%{opacity:.35}}
-.pred-note.up{color:#31f09f;animation:blink 1s linear infinite}
-.pred-note.down{color:#ff7a7a;animation:blink 1s linear infinite}
+.pred-note.up{color:var(--green);animation:blink 1s linear infinite}
+.pred-note.down{color:var(--red);animation:blink 1s linear infinite}
+
+/* Ticker ribbon (fixed above footer) */
+.ticker{
+  position:fixed;left:0;right:0;bottom:64px;  /* sits above the footer */
+  background:#0b1020;border-top:1px solid #ffffff12;border-bottom:1px solid #ffffff12;
+  z-index:45;
+}
+.ticker-track{
+  display:flex;gap:28px;white-space:nowrap;overflow:hidden;
+  animation:scroll-left 35s linear infinite;
+  padding:10px 0;
+}
+@keyframes scroll-left{
+  from{transform:translateX(0)}
+  to{transform:translateX(-50%)}
+}
+.ti{display:flex;gap:8px;align-items:baseline;font-size:14px;color:#eaf0ff}
+.ti .nm{font-weight:700;color:#eaf0ff}
+.ti .px{color:#cbd6ff}
+.ti .chg.up{color:var(--green);font-weight:700}
+.ti .chg.down{color:var(--red);font-weight:700}
 
 /* Footer (fixed bottom) */
 .footer{
@@ -99,7 +121,7 @@ h1 span{color:var(--gold1)}
 
 .social-icons{display:flex;gap:16px}
 .social-icons img{
-  width:32px;height:32px; /* larger icons */
+  width:32px;height:32px;
   filter:invert(85%);
   transition:transform .25s ease
 }
