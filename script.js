@@ -14,6 +14,7 @@
   let lastQ = "";
   let timer = null;
 
+  /* ---------- Suggestions (typeahead) ---------- */
   function showSuggest(show){ box && box.classList.toggle('hidden', !show || items.length === 0); }
   function clearSuggest(){ items = []; if(box){ box.innerHTML = ""; box.classList.add('hidden'); } activeIdx = -1; }
   function renderSuggest() {
@@ -72,6 +73,7 @@
     else if (e.key === 'Escape') { clearSuggest(); }
   }
 
+  /* ---------- Signal rendering ---------- */
   function setSignal(up, bindu){
     const chip = $('cSignal');
     if (chip){
@@ -87,6 +89,7 @@
     }
   }
 
+  /* ---------- Core run: fetch OHLC + compute bindu ---------- */
   async function run(){
     const q = (input?.value||'').trim();
     if(!q){ alert('Enter a company or ticker'); return; }
@@ -121,6 +124,77 @@
     }
   }
 
+  /* ---------- World indices ticker ---------- */
+  const TICKER_SYMBOLS = [
+    {name:'S&P 500',      sym:'^GSPC'},
+    {name:'Dow Jones',    sym:'^DJI'},
+    {name:'Nasdaq 100',   sym:'^NDX'},
+    {name:'FTSE 100',     sym:'^FTSE'},
+    {name:'DAX',          sym:'^GDAXI'},
+    {name:'CAC 40',       sym:'^FCHI'},
+    {name:'Nikkei 225',   sym:'^N225'},
+    {name:'Hang Seng',    sym:'^HSI'},
+    {name:'ASX 200',      sym:'^AXJO'},
+    {name:'Sensex',       sym:'^BSESN'},
+    {name:'Nifty 50',     sym:'^NSEI'},
+    {name:'Bank Nifty',   sym:'^NSEBANK'}
+  ];
+
+  async function fetchOne(symObj){
+    try{
+      const r = await fetch(API + '/stock?q=' + encodeURIComponent(symObj.sym));
+      const d = await r.json();
+      if(!r.ok) throw new Error(d.error || 'bad');
+      const px = Number(d.close);
+      const op = Number(d.open);
+      const chg = px - op;
+      const pct = op ? (chg/op*100) : 0;
+      return {
+        name: symObj.name,
+        price: isFinite(px) ? px.toFixed(2) : '-',
+        chg: isFinite(chg) ? chg.toFixed(2) : '0.00',
+        pct: isFinite(pct) ? pct.toFixed(2) : '0.00',
+        up: chg >= 0
+      };
+    }catch(e){
+      return {name: symObj.name, price:'-', chg:'0.00', pct:'0.00', up:false};
+    }
+  }
+
+  async function buildTicker(){
+    const track = $('tickerTrack');
+    if(!track) return;
+    track.innerHTML = 'Loading markets...';
+
+    // fetch sequentially to avoid burst (lighter on API); ~12 calls
+    const rows = [];
+    for (const s of TICKER_SYMBOLS){
+      /* eslint-disable no-await-in-loop */
+      const data = await fetchOne(s);
+      rows.push(data);
+    }
+
+    // Build one pass of items
+    const pass = rows.map(d => `
+      <div class="ti">
+        <span class="nm">${d.name}</span>
+        <span class="px">${d.price}</span>
+        <span class="chg ${d.up ? 'up' : 'down'}">
+          ${d.up ? '▲' : '▼'} ${d.chg} (${d.up ? '+' : ''}${d.pct}%)
+        </span>
+      </div>
+    `).join('<span>&nbsp;&nbsp;</span>');
+
+    // Duplicate content to enable seamless scroll
+    track.innerHTML = pass + pass;
+  }
+
+  // Initial load after page is interactive
+  window.addEventListener('load', buildTicker);
+  // Refresh every 5 minutes (adjust if you want fewer API calls)
+  setInterval(buildTicker, 5 * 60 * 1000);
+
+  /* ---------- Events ---------- */
   if(input){
     input.addEventListener('input', onType);
     input.addEventListener('keydown', onKeyDown);
