@@ -97,9 +97,9 @@ h1 span{color:var(--gold1)}
 .footer-content p{margin:0;font-size:14px;color:#cbd6ff}
 .footer-content a{color:#cbd6ff}
 
-.social-icons{display:flex;gap:16px}
+.social-icons{display:flex;gap:30px}
 .social-icons img{
-  width:32px;height:32px; /* larger icons */
+  width:50px;height:50px; /* larger icons */
   filter:invert(85%);
   transition:transform .25s ease
 }
