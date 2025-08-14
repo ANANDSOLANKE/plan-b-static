@@ -14,7 +14,7 @@
   let lastQ = "";
   let timer = null;
 
-  /* ---------- Suggestions ---------- */
+  /* ---------- Suggestions (typeahead) ---------- */
   function showSuggest(show){ if(!box) return; box.classList.toggle('hidden', !show || items.length === 0); }
   function clearSuggest(){ items = []; if(box){ box.innerHTML = ""; box.classList.add('hidden'); } activeIdx = -1; }
   function renderSuggest() {
@@ -129,99 +129,111 @@
     }
   }
 
-  /* ---------- World indices (2-row flip board) ---------- */
-  const INDICES = [
-    {name:'S&P 500',      sym:'^GSPC'},
-    {name:'Dow Jones',    sym:'^DJI'},
-    {name:'Nasdaq 100',   sym:'^NDX'},
-    {name:'FTSE 100',     sym:'^FTSE'},
-    {name:'DAX',          sym:'^GDAXI'},
-    {name:'CAC 40',       sym:'^FCHI'},
-    {name:'Nikkei 225',   sym:'^N225'},
-    {name:'Hang Seng',    sym:'^HSI'},
-    {name:'ASX 200',      sym:'^AXJO'},
-    {name:'Sensex',       sym:'^BSESN'},
-    {name:'Nifty 50',     sym:'^NSEI'},
-    {name:'Bank Nifty',   sym:'^NSEBANK'}
+  /* ---------- WORLD INDICES: smooth marquee ribbon ---------- */
+  const TICKER_SYMBOLS = [
+    {name:'S&P 500',    sym:'^GSPC'},
+    {name:'Dow Jones',  sym:'^DJI'},
+    {name:'Nasdaq 100', sym:'^NDX'},
+    {name:'FTSE 100',   sym:'^FTSE'},
+    {name:'DAX',        sym:'^GDAXI'},
+    {name:'CAC 40',     sym:'^FCHI'},
+    {name:'Nikkei 225', sym:'^N225'},
+    {name:'Hang Seng',  sym:'^HSI'},
+    {name:'ASX 200',    sym:'^AXJO'},
+    {name:'Sensex',     sym:'^BSESN'},
+    {name:'Nifty 50',   sym:'^NSEI'},
+    {name:'Bank Nifty', sym:'^NSEBANK'}
   ];
 
-  async function fetchOne(symObj){
-    if(!API) return {name:symObj.name, price:'-', chg:'0.00', pct:'0.00', up:false};
+  async function fetchIndex(symObj){
     try{
       const r = await fetch(API + '/stock?q=' + encodeURIComponent(symObj.sym));
       if(!r.ok) throw new Error(await r.text());
       const d = await r.json();
-      const px = Number(d.close);
-      const op = Number(d.open);
-      const chg = px - op;
-      const pct = op ? (chg/op*100) : 0;
-      return { name:symObj.name, price:isFinite(px)?px.toFixed(2):'-', chg:isFinite(chg)?chg.toFixed(2):'0.00', pct:isFinite(pct)?pct.toFixed(2):'0.00', up: chg>=0 };
+      const px = Number(d.close), op = Number(d.open);
+      const chg = px - op, pct = op ? (chg/op*100) : 0;
+      return {
+        name: symObj.name,
+        price: isFinite(px) ? px.toFixed(2) : '-',
+        chg: isFinite(chg) ? chg.toFixed(2) : '0.00',
+        pct: isFinite(pct) ? pct.toFixed(2) : '0.00',
+        up: chg >= 0
+      };
     }catch(e){
-      console.warn("index error:", symObj.sym, e.message || e);
       return {name:symObj.name, price:'-', chg:'0.00', pct:'0.00', up:false};
     }
   }
 
-  async function loadIndices(){
-    const grid = $('indicesGrid');
-    if(!grid) return;
-    grid.innerHTML = '';
+  async function buildTickerOnce(){
+    const track = document.getElementById('tickerTrack');
+    const viewport = track?.parentElement;
+    if(!track || !viewport) return;
 
+    // get data
     const rows = [];
-    for(const s of INDICES){ /* eslint-disable no-await-in-loop */
-      rows.push(await fetchOne(s));
+    for(const s of TICKER_SYMBOLS){ /* eslint-disable no-await-in-loop */
+      rows.push(await fetchIndex(s));
     }
 
-    rows.forEach((d) => {
-      const tile = document.createElement('div');
-      tile.className = 'tile';
-      tile.innerHTML = `
-        <div class="tile-inner">
-          <div class="face front">
-            <div class="tnm">${d.name}</div>
-            <div class="tchg ${d.up ? 'up' : 'down'}">${d.up ? '▲' : '▼'} ${d.chg} (${d.up?'+':''}${d.pct}%)</div>
-            <div class="tpx">${d.price}</div>
-          </div>
-          <div class="face back">
-            <div class="tnm">${d.name}</div>
-            <div class="tchg ${d.up ? 'up' : 'down'}">${d.up ? '▲' : '▼'} ${d.chg} (${d.up?'+':''}${d.pct}%)</div>
-            <div class="tpx">${d.price}</div>
-          </div>
-        </div>
+    // build one pass
+    track.innerHTML = '';
+    const makeItem = (d) => {
+      const el = document.createElement('span');
+      el.className = 'ticker-item';
+      el.innerHTML = `
+        <span class="nm">${d.name}</span>
+        <span class="px">${d.price}</span>
+        <span class="chg ${d.up ? 'up' : 'down'}">${d.up ? '▲' : '▼'} ${d.chg} (${d.up?'+':''}${d.pct}%)</span>
       `;
-      grid.appendChild(tile);
-    });
-  }
+      return el;
+    };
+    rows.forEach(d => track.appendChild(makeItem(d)));
 
-  function flipSequential(){
-    const grid = $('indicesGrid'); if(!grid) return;
-    const tiles = Array.from(grid.querySelectorAll('.tile'));
-    let i = 0;
-
-    function flipNext(){
-      if (!tiles.length) return;
-      tiles[i].classList.toggle('flip');
-      i++;
-      if(i < tiles.length){
-        setTimeout(flipNext, 500); // 0.5s between flips
-      } else {
-        // Restart after 10s pause
-        setTimeout(()=>{
-          i = 0;
-          flipNext();
-        }, 10000);
-      }
+    // duplicate until > 2× viewport width for seamless scroll
+    while (track.scrollWidth < viewport.clientWidth * 2.2) {
+      rows.forEach(d => track.appendChild(makeItem(d)));
     }
-    flipNext();
   }
 
+  function startTickerAnimation(){
+    const track = document.getElementById('tickerTrack');
+    if(!track) return;
+
+    let pos = 0;            // translateX in px
+    const speed = 40;       // px per second
+    let last = null;
+    let paused = false;
+
+    const onFrame = (t) => {
+      if (paused) { last = t; requestAnimationFrame(onFrame); return; }
+      if (!last) last = t;
+      const dt = (t - last) / 1000; last = t;
+      pos -= speed * dt;
+
+      const half = track.scrollWidth / 2;
+      if (-pos >= half) pos += half;       // loop seamlessly
+      track.style.transform = `translateX(${pos}px)`;
+      requestAnimationFrame(onFrame);
+    };
+
+    const viewport = track.parentElement;
+    viewport.addEventListener('mouseenter', ()=> paused = true);
+    viewport.addEventListener('mouseleave', ()=> paused = false);
+
+    requestAnimationFrame(onFrame);
+  }
+
+  async function initTicker(){
+    await buildTickerOnce();
+    startTickerAnimation();
+    setInterval(async ()=>{ await buildTickerOnce(); }, 10 * 60 * 1000); // refresh every 10 min
+  }
+
+  /* ---------- Init ---------- */
   window.addEventListener('load', async () => {
-    await loadIndices();
-    setInterval(loadIndices, 10 * 60 * 1000); // refresh prices every 10 min
-    flipSequential();                           // flip tiles one by one
+    initTicker();                       // start the scrolling ribbon
   });
 
-  /* ---------- Events ---------- */
   if(input){
     input.addEventListener('input', onType);
     input.addEventListener('keydown', onKeyDown);
