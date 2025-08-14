@@ -15,7 +15,7 @@
   let timer = null;
 
   /* ---------- Suggestions ---------- */
-  function showSuggest(show){ box && box.classList.toggle('hidden', !show || items.length === 0); }
+  function showSuggest(show){ if(!box) return; box.classList.toggle('hidden', !show || items.length === 0); }
   function clearSuggest(){ items = []; if(box){ box.innerHTML = ""; box.classList.add('hidden'); } activeIdx = -1; }
   function renderSuggest() {
     if(!box) return;
@@ -35,12 +35,17 @@
   }
 
   async function fetchSuggest(q){
+    if(!API){ console.warn("API_BASE not set"); return clearSuggest(); }
     try{
       const res = await fetch(API + '/suggest?q=' + encodeURIComponent(q));
+      if(!res.ok) throw new Error(await res.text());
       const data = await res.json();
       items = (data.results || []).slice(0,10);
       renderSuggest();
-    }catch(e){ clearSuggest(); }
+    }catch(e){
+      console.warn("suggest error:", e.message || e);
+      clearSuggest();
+    }
   }
 
   function debounce(fn, ms){
@@ -102,8 +107,8 @@
 
     try{
       const r = await fetch(API + '/stock?q=' + encodeURIComponent(q));
+      if(!r.ok) throw new Error(await r.text());
       const d = await r.json();
-      if(!r.ok) throw new Error(d.error || 'Request failed');
 
       const {ticker, open, high, low, close} = d;
       setText('cTicker', ticker);
@@ -120,11 +125,11 @@
       setText('cTicker', 'Error');
       const chip = $('cSignal'); if(chip){ chip.className='chip down'; chip.textContent='Failed to fetch'; }
       setText('predNote', 'Prediction For Next Day: -');
-      console.error(e);
+      console.error("stock error:", e.message || e);
     }
   }
 
-  /* ---------- World indices (flip board) ---------- */
+  /* ---------- World indices (2-row flip board) ---------- */
   const INDICES = [
     {name:'S&P 500',      sym:'^GSPC'},
     {name:'Dow Jones',    sym:'^DJI'},
@@ -141,16 +146,18 @@
   ];
 
   async function fetchOne(symObj){
+    if(!API) return {name:symObj.name, price:'-', chg:'0.00', pct:'0.00', up:false};
     try{
       const r = await fetch(API + '/stock?q=' + encodeURIComponent(symObj.sym));
+      if(!r.ok) throw new Error(await r.text());
       const d = await r.json();
-      if(!r.ok) throw new Error(d.error || 'bad');
       const px = Number(d.close);
       const op = Number(d.open);
       const chg = px - op;
       const pct = op ? (chg/op*100) : 0;
       return { name:symObj.name, price:isFinite(px)?px.toFixed(2):'-', chg:isFinite(chg)?chg.toFixed(2):'0.00', pct:isFinite(pct)?pct.toFixed(2):'0.00', up: chg>=0 };
     }catch(e){
+      console.warn("index error:", symObj.sym, e.message || e);
       return {name:symObj.name, price:'-', chg:'0.00', pct:'0.00', up:false};
     }
   }
@@ -165,8 +172,7 @@
       rows.push(await fetchOne(s));
     }
 
-    // Build tiles
-    rows.forEach((d, idx) => {
+    rows.forEach((d) => {
       const tile = document.createElement('div');
       tile.className = 'tile';
       tile.innerHTML = `
@@ -187,44 +193,33 @@
     });
   }
 
-  function flipAll(){
+  function flipSequential(){
     const grid = $('indicesGrid'); if(!grid) return;
-    const tiles = grid.querySelectorAll('.tile');
-    tiles.forEach(t => t.classList.toggle('flip'));
+    const tiles = Array.from(grid.querySelectorAll('.tile'));
+    let i = 0;
+
+    function flipNext(){
+      if (!tiles.length) return;
+      tiles[i].classList.toggle('flip');
+      i++;
+      if(i < tiles.length){
+        setTimeout(flipNext, 500); // 0.5s between flips
+      } else {
+        // Restart after 10s pause
+        setTimeout(()=>{
+          i = 0;
+          flipNext();
+        }, 10000);
+      }
+    }
+    flipNext();
   }
 
-  // Initial build after page load, refresh data every 10 minutes
   window.addEventListener('load', async () => {
     await loadIndices();
-    setInterval(loadIndices, 10 * 60 * 1000);
-    function flipSequential(){
-  const grid = $('indicesGrid'); if(!grid) return;
-  const tiles = Array.from(grid.querySelectorAll('.tile'));
-  let i = 0;
-
-  function flipNext(){
-    // Flip current tile
-    tiles[i].classList.toggle('flip');
-    i++;
-    if(i < tiles.length){
-      setTimeout(flipNext, 500); // delay between each tile's flip
-    } else {
-      // After finishing all, wait 10s then start over
-      setTimeout(()=>{
-        i = 0;
-        flipNext();
-      }, 10000);
-    }
-  }
-  flipNext();
-}
-
-window.addEventListener('load', async () => {
-  await loadIndices();
-  setInterval(loadIndices, 10 * 60 * 1000); // refresh every 10 min
-  flipSequential(); // start the sequential flip loop
-});
-
+    setInterval(loadIndices, 10 * 60 * 1000); // refresh prices every 10 min
+    flipSequential();                           // flip tiles one by one
+  });
 
   /* ---------- Events ---------- */
   if(input){
