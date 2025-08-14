@@ -10,7 +10,7 @@ a{color:#cbd6ff;text-decoration:none}
 .site-header{position:sticky;top:0;background:linear-gradient(180deg,rgba(12,16,33,.95),rgba(12,16,33,.7));backdrop-filter:blur(6px);border-bottom:1px solid #ffffff12;z-index:50}
 .header-row{display:flex;align-items:center;justify-content:space-between;gap:16px}
 .brand{display:flex;gap:12px;align-items:center}
-.logo{width:46px;height:46px;filter:drop-shadow(0 4px 10px #0008)}
+.logo{width:52px;height:52px;filter:drop-shadow(0 4px 10px #0008);border-radius:6px}
 h1{margin:0;font-size:22px} h1 span{color:var(--gold1)}
 .tag{margin:.25rem 0 0;color:#a3b1db;font-size:13px}
 .nav a{margin:0 10px;color:#cbd6ff}
@@ -18,6 +18,7 @@ h1{margin:0;font-size:22px} h1 span{color:var(--gold1)}
 @media (max-width: 980px){.grid{grid-template-columns:1fr} .side{display:none}}
 .panel{background:var(--card);border:1px solid #ffffff14;border-radius:16px;box-shadow:0 12px 40px #0008;padding:18px}
 .hero-title{margin:.25rem 0 1rem;font-size:20px;color:#dbe4ff}
+.lede{color:#c7d3ff;margin:.5rem 0 1rem}
 .row{display:flex;gap:10px;align-items:center}
 .row input{flex:1;background:#0b0f23;border:1px solid #ffffff24;border-radius:12px;color:var(--text);padding:14px 14px;font-size:16px;outline:none}
 .row input::placeholder{color:#93a1c0}
@@ -29,33 +30,26 @@ h1{margin:0;font-size:22px} h1 span{color:var(--gold1)}
 .suggest-item:hover,.suggest-item.active{background:#141b3a}
 .suggest-item .left{font-weight:700}
 .suggest-item .right{color:#9db0e0;font-size:12px}
-
 .card{background:#0a0f22;border:1px solid #ffffff10;border-radius:14px;padding:16px}
 .card-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px}
 .chip{padding:6px 12px;border-radius:999px;font-weight:800;font-size:13px;border:1px solid #ffffff22}
 .chip.up{background:#052d1a;color:#31f09f;border-color:#1e9c6d}
 .chip.down{background:#2b0a0a;color:#ff7a7a;border-color:#aa2f2f}
-
 .ohlc{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
 @media (max-width:640px){.ohlc{grid-template-columns:repeat(2,1fr)}}
 .kv{background:#0b1026;border:1px solid #ffffff12;border-radius:12px;padding:14px;display:grid;gap:6px}
 .kv span{color:#a8b6e1;font-size:13px}
 .kv strong{font-size:22px}
-
-.pred-note{margin-top:14px;font-size:22px;font-weight:900;color:#e8edff}
-
+.pred-note{margin-top:14px;font-size:20px;font-weight:800;color:#e8edff}
 .side{position:sticky;top:80px;display:grid;gap:16px;height:fit-content}
 .trend-list{list-style:none;margin:0;padding:0;display:grid;gap:8px}
 .trend-list li{display:flex;justify-content:space-between;background:#0b1026;border:1px solid #ffffff12;border-radius:10px;padding:10px}
 .trend-list li span.right{color:#a9b5dc;font-size:12px}
-
-.ad{border:1px dashed #6173a1;border-radius:12px;min-height:72px;display:grid;place-items:center;color:#9db0e0}
-.ad-hdr{min-height:60px}
-.ad-incontent{min-height:90px;margin:14px 0}
-.ad-side{min-height:250px}
-.ad-side-tall{min-height:600px}
-
-.sticky-ad{position:fixed;left:0;right:0;bottom:0;background:#0b0f23d9;border-top:1px dashed #ffffff24;padding:8px;z-index:60}
-.ad-sticky{min-height:60px}
+.readable{line-height:1.7}
+.readable h2{margin-top:0}
+.readable h3{margin-top:1.25rem;color:#e9efff}
+.readable p, .readable ul, .readable li{color:#d8e1ff}
+.contact-form{display:grid;gap:10px;max-width:520px}
+.contact-form input,.contact-form textarea{background:#0b0f23;border:1px solid #ffffff24;border-radius:10px;color:#eaf0ff;padding:12px}
 .footer{margin:40px 0 80px;color:#98a6cc}
 .footer a{color:#cbd6ff}

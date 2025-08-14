@@ -60,19 +60,11 @@
     run();
   }
 
-  function onKeyDown(e){
-    if (box.classList.contains('hidden')) return;
-    if (e.key === 'ArrowDown') { e.preventDefault(); activeIdx = Math.min(items.length-1, activeIdx+1); renderSuggest(); }
-    else if (e.key === 'ArrowUp') { e.preventDefault(); activeIdx = Math.max(0, activeIdx-1); renderSuggest(); }
-    else if (e.key === 'Enter') { if (activeIdx >= 0) { e.preventDefault(); choose(activeIdx); } }
-    else if (e.key === 'Escape') { clearSuggest(); }
-  }
-
   function setSignal(up, bindu){
-    const chip = $('cSignal');
+    const chip = document.getElementById('cSignal');
     chip.className = 'chip ' + (up ? 'up' : 'down');
     chip.textContent = (up ? '▲ Bullish' : '▼ Bearish') + ` • Bindu ${bindu}`;
-    const note = $('predNote');
+    const note = document.getElementById('predNote');
     note.textContent = 'Prediction For Next Day: ' + (up ? '▲ Price Up (1)' : '▼ Price Down (0)');
   }
 
@@ -83,8 +75,8 @@
     card.classList.remove('hidden');
     setText('cTicker', 'Fetching… ' + q.toUpperCase());
     setText('cOpen','—'); setText('cHigh','—'); setText('cLow','—'); setText('cClose','—');
-    $('cSignal').className = 'chip'; $('cSignal').textContent = 'Loading…';
-    $('predNote').textContent = 'Prediction For Next Day: …';
+    document.getElementById('cSignal').className = 'chip'; document.getElementById('cSignal').textContent = 'Loading…';
+    document.getElementById('predNote').textContent = 'Prediction For Next Day: …';
 
     try{
       const r = await fetch(API + '/stock?q=' + encodeURIComponent(q));
@@ -93,10 +85,10 @@
 
       const {ticker, open, high, low, close} = d;
       setText('cTicker', ticker);
-      setText('cOpen', open.toFixed(2));
-      setText('cHigh', high.toFixed(2));
-      setText('cLow', low.toFixed(2));
-      setText('cClose', close.toFixed(2));
+      setText('cOpen', Number(open).toFixed(2));
+      setText('cHigh', Number(high).toFixed(2));
+      setText('cLow', Number(low).toFixed(2));
+      setText('cClose', Number(close).toFixed(2));
 
       const o=open%9, h=high%9, l=low%9, c=close%9;
       const layer1=(o+c)%9, layer2=(h-l+9)%9, bindu=(layer1*layer2)%9;
@@ -104,37 +96,34 @@
       setSignal(up, bindu);
     }catch(e){
       setText('cTicker', 'Error');
-      const chip = $('cSignal'); chip.className='chip down'; chip.textContent='Failed to fetch';
-      $('predNote').textContent = 'Prediction For Next Day: —';
+      const chip = document.getElementById('cSignal'); chip.className='chip down'; chip.textContent='Failed to fetch';
+      document.getElementById('predNote').textContent = 'Prediction For Next Day: —';
       console.error(e);
     }
   }
 
-  async function loadTrending(){
+  input && input.addEventListener('input', onType);
+  input && input.addEventListener('keydown', e => {
+    if(e.key==='Enter') run();
+  });
+  document.getElementById('go') && document.getElementById('go').addEventListener('click', run);
+
+  // Trending
+  (async function loadTrending(){
     try{
       const r = await fetch(API + '/trending?region=IN');
       const d = await r.json();
-      const ul = $('trendList');
+      const ul = document.getElementById('trendList');
+      if(!ul) return;
       ul.innerHTML = '';
       const list = (d.results||[]).slice(0,10);
       if(!list.length){ ul.innerHTML = '<li>No data</li>'; return; }
       list.forEach(item=>{
         const li = document.createElement('li');
         li.innerHTML = `<span>${item.symbol}</span><span class="right">${(item.shortname||'').slice(0,42)}</span>`;
-        li.addEventListener('click', ()=>{ input.value = item.symbol; run(); });
+        li.addEventListener('click', ()=>{ if(input){ input.value = item.symbol; run(); } });
         ul.appendChild(li);
       });
-    }catch(e){
-      const ul = $('trendList');
-      ul.innerHTML = '<li>Failed to load</li>';
-    }
-  }
-
-  input.addEventListener('input', onType);
-  input.addEventListener('keydown', onKeyDown);
-  input.addEventListener('blur', () => setTimeout(clearSuggest, 120));
-  go.addEventListener('click', run);
-  input.addEventListener('keydown', e => { if(e.key==='Enter' && box.classList.contains('hidden')) run(); });
-
-  loadTrending();
+    }catch(e){}
+  })();
 })();
