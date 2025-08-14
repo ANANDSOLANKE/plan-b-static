@@ -3,66 +3,79 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>StockPricePredictions — Shree Yantra Signals</title>
+  <title>StockPricePredictions â€” Shree Yantra Signals</title>
   <meta name="description" content="Vedic-themed stock predictor with real OHLC data, autocomplete, and trending." />
+
   <link rel="icon" type="image/png" href="logo.png" />
   <link rel="stylesheet" href="style.css" />
-  <!-- Google AdSense (Auto Ads) -->
+
+  <!-- Google AdSense (Auto Ads only) -->
   <meta name="google-adsense-account" content="ca-pub-6957786074161829" />
   <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6957786074161829" crossorigin="anonymous"></script>
 </head>
 <body>
-<header class="site-header">
-  <div class="wrap header-row">
-    <div class="brand">
-      <img class="logo" src="logo.png" alt="Shree Yantra Logo" />
-      <div>
-        <h1>Shree Yantra <span>Stock Predictor</span></h1>
-        <p class="tag">Vedic-inspired signals • Real OHLC • Free</p>
+  <header class="site-header">
+    <div class="wrap header-row">
+      <div class="brand">
+        <img class="logo" src="logo.png" alt="Stock Price Predictions Logo" />
+        <div>
+          <h1>Shree Yantra <span>Stock Predictor</span></h1>
+          <p class="tag">Vedic-inspired signals â€¢ Real OHLC â€¢ Free</p>
+        </div>
+      </div>
+      <nav class="nav">
+        <a href="index.html" aria-current="page">Home</a>
+        <a href="about.html" target="_blank" rel="noopener">About</a>
+        <a href="privacy.html" target="_blank" rel="noopener">Privacy</a>
+        <a href="terms.html" target="_blank" rel="noopener">Terms</a>
+        <a href="contact.html" target="_blank" rel="noopener">Contact</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="panel">
+      <h2 class="hero-title">Find a stock. See today's OHLC and a mystical hint for tomorrow.</h2>
+      <p class="lede">Type a company or ticker to get live OHLC data and our Sree Yantra based nextâ€‘day signal.</p>
+
+      <div class="search-stack">
+        <div class="row">
+          <input id="ticker" placeholder="Type company or ticker (e.g., Tata Motors, RELIANCE.NS, AAPL)" />
+          <button id="go" class="btn">Analyze</button>
+        </div>
+        <div id="suggestBox" class="suggest hidden" role="listbox" aria-label="Suggestions"></div>
+      </div>
+
+      <article id="card" class="card hidden" aria-live="polite">
+        <header class="card-head">
+          <h3 id="cTicker">â€”</h3>
+          <div id="cSignal" class="chip">Awaitingâ€¦</div>
+        </header>
+        <div class="ohlc">
+          <div class="kv"><span>Open</span><strong id="cOpen">â€”</strong></div>
+          <div class="kv"><span>High</span><strong id="cHigh">â€”</strong></div>
+          <div class="kv"><span>Low</span><strong id="cLow">â€”</strong></div>
+          <div class="kv"><span>Close</span><strong id="cClose">â€”</strong></div>
+        </div>
+        <p class="pred-note" id="predNote">Prediction For Next Day: â€”</p>
+      </article>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="wrap footer-content">
+      <p>Â© 2025 StockPricePredictions.com â€¢ Signals are informational only â€¢ <a href="privacy.html" target="_blank">Privacy</a></p>
+      <div class="social-icons">
+        <a href="#" target="_blank" rel="noopener" aria-label="Facebook"><img src="icons/facebook.svg" alt="Facebook"></a>
+        <a href="#" target="_blank" rel="noopener" aria-label="Twitter"><img src="icons/twitter.svg" alt="Twitter"></a>
+        <a href="#" target="_blank" rel="noopener" aria-label="Instagram"><img src="icons/instagram.svg" alt="Instagram"></a>
+        <a href="#" target="_blank" rel="noopener" aria-label="LinkedIn"><img src="icons/linkedin.svg" alt="LinkedIn"></a>
+        <a href="#" target="_blank" rel="noopener" aria-label="YouTube"><img src="icons/youtube.svg" alt="YouTube"></a>
       </div>
     </div>
-    <nav class="nav">
-      <a href="index.html">Home</a>
-      <a href="about.html" target="_blank" rel="noopener">About</a>
-      <a href="privacy.html" target="_blank" rel="noopener">Privacy</a>
-      <a href="terms.html" target="_blank" rel="noopener">Terms</a>
-      <a href="contact.html" target="_blank" rel="noopener">Contact</a>
-    </nav>
-  </div>
-</header>
+  </footer>
 
-<main class="wrap">
-  <section class="panel">
-    <h2 class="hero-title">Find a stock. See today's OHLC and a mystical hint for tomorrow.</h2>
-    <p class="lede">Type a company or ticker to get live OHLC data and our Sree Yantra based next-day signal.</p>
-
-    <div class="search-stack">
-      <div class="row">
-        <input id="ticker" placeholder="Type company or ticker (e.g., Tata Motors, RELIANCE.NS, AAPL)" />
-        <button id="go" class="btn">Analyze</button>
-      </div>
-      <div id="suggestBox" class="suggest hidden" role="listbox" aria-label="Suggestions"></div>
-    </div>
-
-    <article id="card" class="card hidden" aria-live="polite">
-      <header class="card-head">
-        <h3 id="cTicker">—</h3>
-        <div id="cSignal" class="chip">Awaiting…</div>
-      </header>
-      <div class="ohlc">
-        <div class="kv"><span>Open</span><strong id="cOpen">—</strong></div>
-        <div class="kv"><span>High</span><strong id="cHigh">—</strong></div>
-        <div class="kv"><span>Low</span><strong id="cLow">—</strong></div>
-        <div class="kv"><span>Close</span><strong id="cClose">—</strong></div>
-      </div>
-      <p class="pred-note" id="predNote">Prediction For Next Day: —</p>
-    </article>
-  </section>
-</main>
-
-<footer class="wrap footer">
-  <p>© 2025 StockPricePredictions.com • Signals are informational only • <a href="privacy.html" target="_blank" rel="noopener">Privacy</a></p>
-</footer>
-<script>window.API_BASE = "https://api.stockpricepredictions.com";</script>
-<script src="script.js"></script>
-</body></html>
+  <script>window.API_BASE = "https://api.stockpricepredictions.com";</script>
+  <script src="script.js"></script>
+</body>
+</html>
