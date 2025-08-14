@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>StockPricePredictions — Shree Yantra Signals</title>
-  <meta name="description" content="Vedic-themed stock predictor with real OHLC data, autocomplete, and a two-row global indices board." />
+  <meta name="description" content="Vedic-themed stock predictor with live OHLC, autocomplete, and a global indices ticker." />
 
   <link rel="icon" type="image/png" href="logo.png" />
   <link rel="stylesheet" href="style.css" />
@@ -64,10 +64,10 @@
     </section>
   </main>
 
-  <!-- Global indices flip board (2 rows) -->
-  <div class="indices-bar" aria-label="Global indices board">
-    <div class="wrap">
-      <div class="indices-grid" id="indicesGrid"></div>
+  <!-- Global indices scrolling ribbon (above footer) -->
+  <div class="ticker" aria-label="Global market ticker">
+    <div class="wrap ticker-viewport">
+      <div class="ticker-track" id="tickerTrack"></div>
     </div>
   </div>
 
