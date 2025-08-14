@@ -197,8 +197,34 @@
   window.addEventListener('load', async () => {
     await loadIndices();
     setInterval(loadIndices, 10 * 60 * 1000);
-    setInterval(flipAll, 4000); // “airport” flap every 4s
-  });
+    function flipSequential(){
+  const grid = $('indicesGrid'); if(!grid) return;
+  const tiles = Array.from(grid.querySelectorAll('.tile'));
+  let i = 0;
+
+  function flipNext(){
+    // Flip current tile
+    tiles[i].classList.toggle('flip');
+    i++;
+    if(i < tiles.length){
+      setTimeout(flipNext, 500); // delay between each tile's flip
+    } else {
+      // After finishing all, wait 10s then start over
+      setTimeout(()=>{
+        i = 0;
+        flipNext();
+      }, 10000);
+    }
+  }
+  flipNext();
+}
+
+window.addEventListener('load', async () => {
+  await loadIndices();
+  setInterval(loadIndices, 10 * 60 * 1000); // refresh every 10 min
+  flipSequential(); // start the sequential flip loop
+});
+
 
   /* ---------- Events ---------- */
   if(input){
