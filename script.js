@@ -2,6 +2,34 @@
   const API = window.API_BASE || "";
   const $ = id => document.getElementById(id);
 
+  /* ---- Fetch with timeout helper ---- */
+  async function fetchWithTimeout(url, opts={}, ms=12000){
+    const ctl = new AbortController();
+    const t = setTimeout(()=>ctl.abort(), ms);
+    try{
+      const res = await fetch(url, {...opts, signal: ctl.signal});
+      return res;
+    } finally { clearTimeout(t); }
+  }
+
+  /* ---- Health polling for status dot ---- */
+  const apiDot = $('apiDot');
+  async function pingHealth(){
+    if(!API || !apiDot) return;
+    try{
+      const r = await fetchWithTimeout(API + '/health', {}, 6000);
+      if(!r.ok) throw new Error('bad status '+r.status);
+      const j = await r.json();
+      apiDot.classList.remove('warn','down','ok');
+      apiDot.classList.add('ok');
+    }catch(e){
+      apiDot.classList.remove('ok','down','warn');
+      apiDot.classList.add('down');
+    }
+  }
+  // poll every 60s
+  setInterval(pingHealth, 60000);
+
   const input = $('ticker');
   const go = $('go');
   const box = $('suggestBox');
@@ -37,7 +65,7 @@
   async function fetchSuggest(q){
     if(!API){ console.warn("API_BASE not set"); return clearSuggest(); }
     try{
-      const res = await fetch(API + '/suggest?q=' + encodeURIComponent(q));
+      const res = await fetchWithTimeout(API + '/suggest?q=' + encodeURIComponent(q), {}, 10000);
       if(!res.ok) throw new Error(await res.text());
       const data = await res.json();
       items = (data.results || []).slice(0,10);
@@ -95,6 +123,14 @@
   }
 
   /* ---------- Core run: fetch OHLC + compute bindu ---------- */
+  function showApiDown(){
+    const note = $('predNote');
+    if(note){
+      note.classList.remove('up','down');
+      note.textContent = 'Prediction For Next Day: API unavailable. Please try again.';
+    }
+  }
+
   async function run(){
     const q = (input?.value||'').trim();
     if(!q){ alert('Enter a company or ticker'); return; }
@@ -106,7 +142,7 @@
     setText('predNote', 'Prediction For Next Day: -');
 
     try{
-      const r = await fetch(API + '/stock?q=' + encodeURIComponent(q));
+      const r = await fetchWithTimeout(API + '/stock?q=' + encodeURIComponent(q), {}, 12000);
       if(!r.ok) throw new Error(await r.text());
       const d = await r.json();
 
@@ -124,7 +160,7 @@
     }catch(e){
       setText('cTicker', 'Error');
       const chip = $('cSignal'); if(chip){ chip.className='chip down'; chip.textContent='Failed to fetch'; }
-      setText('predNote', 'Prediction For Next Day: -');
+      showApiDown();
       console.error("stock error:", e.message || e);
     }
   }
@@ -147,7 +183,7 @@
 
   async function fetchIndex(symObj){
     try{
-      const r = await fetch(API + '/stock?q=' + encodeURIComponent(symObj.sym));
+      const r = await fetchWithTimeout(API + '/stock?q=' + encodeURIComponent(symObj.sym), {}, 10000);
       if(!r.ok) throw new Error(await r.text());
       const d = await r.json();
       const px = Number(d.close), op = Number(d.open);
@@ -164,18 +200,10 @@
     }
   }
 
-  async function buildTickerOnce(){
+  function buildTrackFromRows(rows){
     const track = document.getElementById('tickerTrack');
     const viewport = track?.parentElement;
     if(!track || !viewport) return;
-
-    // get data
-    const rows = [];
-    for(const s of TICKER_SYMBOLS){ /* eslint-disable no-await-in-loop */
-      rows.push(await fetchIndex(s));
-    }
-
-    // build one pass
     track.innerHTML = '';
     const makeItem = (d) => {
       const el = document.createElement('span');
@@ -188,11 +216,31 @@
       return el;
     };
     rows.forEach(d => track.appendChild(makeItem(d)));
-
-    // duplicate until > 2× viewport width for seamless scroll
     while (track.scrollWidth < viewport.clientWidth * 2.2) {
       rows.forEach(d => track.appendChild(makeItem(d)));
     }
+  }
+
+  async function buildTickerOnce(){
+    const track = document.getElementById('tickerTrack');
+    if(!track) return;
+
+    // Load cached rows (instant UI) if present
+    try{
+      const cached = localStorage.getItem('tickerRows');
+      if (cached){
+        const rows = JSON.parse(cached);
+        if (Array.isArray(rows) && rows.length) buildTrackFromRows(rows);
+      }
+    }catch(_){}
+
+    // Fetch fresh
+    const rows = [];
+    for(const s of TICKER_SYMBOLS){ /* eslint-disable no-await-in-loop */
+      rows.push(await fetchIndex(s));
+    }
+    buildTrackFromRows(rows);
+    try{ localStorage.setItem('tickerRows', JSON.stringify(rows)); }catch(_){}
   }
 
   function startTickerAnimation(){
@@ -231,7 +279,8 @@
 
   /* ---------- Init ---------- */
   window.addEventListener('load', async () => {
-    initTicker();                       // start the scrolling ribbon
+    pingHealth();
+    initTicker();
   });
 
   if(input){
