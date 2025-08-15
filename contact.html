@@ -7,7 +7,8 @@
   <meta name="description" content="Contact information and form to reach StockPricePredictions." />
   <link rel="icon" type="image/png" href="logo.png" />
   <link rel="stylesheet" href="style.css" />
-  <link rel="stylesheet" href="assets/css/sidebar.css" />
+  <!-- Footer/Ticker overlap fix -->
+  <link rel="stylesheet" href="fix.css" />
   <!-- Google AdSense (Auto Ads) -->
   <meta name="google-adsense-account" content="ca-pub-6957786074161829" />
   <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6957786074161829" crossorigin="anonymous"></script>
@@ -24,10 +25,10 @@
     </div>
     <nav class="nav">
       <a href="index.html">Home</a>
-      <a href="about.html">About</a>
-      <a href="privacy.html">Privacy</a>
-      <a href="terms.html">Terms</a>
-      <a href="contact.html">Contact</a>
+      <a href="about.html" target="_blank" rel="noopener">About</a>
+      <a href="privacy.html" target="_blank" rel="noopener">Privacy</a>
+      <a href="terms.html" target="_blank" rel="noopener">Terms</a>
+      <a href="contact.html" target="_blank" rel="noopener">Contact</a>
     </nav>
   </div>
 </header>
@@ -41,8 +42,7 @@
     <p><a href="mailto:hello@stockpricepredictions.com">hello@stockpricepredictions.com</a></p>
 
     <h3>Message Form</h3>
-    <!-- NOTE: class 'contact-form' is intercepted by sidebar.js to show an inline "Thanks!" -->
-    <form class="contact-form">
+    <form class="contact-form" onsubmit="alert('Thanks! This demo form does not send emails yet.'); return false;">
       <label for="name">Name</label>
       <input id="name" name="name" required />
 
@@ -53,15 +53,10 @@
       <textarea id="msg" name="message" rows="5" required></textarea>
 
       <button type="submit" class="btn">Send</button>
-      <div class="thanks-msg" aria-live="polite" role="status"></div>
     </form>
   </section>
 </main>
-
 <footer class="wrap footer">
-  <p>© 2025 StockPricePredictions.com • <a href="privacy.html">Privacy</a></p>
+  <p>© 2025 StockPricePredictions.com • <a href="privacy.html" target="_blank" rel="noopener">Privacy</a></p>
 </footer>
-
-<!-- Sidebar injector -->
-<script src="assets/js/sidebar.js"></script>
 </body></html>
