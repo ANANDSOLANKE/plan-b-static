@@ -130,3 +130,17 @@ h1 span{color:var(--gold1)}
 @media (max-height: 760px){
   body{ padding-bottom:150px; }
 }
+/* API status pill/dot */
+.api-pill{
+  display:inline-flex; align-items:center; gap:6px;
+  margin-left:10px; padding:4px 8px;
+  border:1px solid #ffffff22; border-radius:999px; color:#cbd6ff; font-size:12px;
+}
+.api-dot{
+  width:10px; height:10px; border-radius:50%;
+  background:#999; box-shadow:0 0 0 2px #0006 inset;
+}
+.api-dot.ok    { background:#31f09f; }
+.api-dot.warn  { background:#ffd166; }
+.api-dot.down  { background:#ff7a7a; }
+}
