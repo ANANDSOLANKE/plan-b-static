@@ -2,30 +2,6 @@
   const API = window.API_BASE || "";
   const $ = id => document.getElementById(id);
 
-  async function fetchWithTimeout(url, opts={}, ms=12000){
-    const ctl = new AbortController();
-    const t = setTimeout(()=>ctl.abort(), ms);
-    try{
-      return await fetch(url, {...opts, signal: ctl.signal});
-    } finally { clearTimeout(t); }
-  }
-
-  // ===== header API status =====
-  const apiDot = $('apiDot');
-  async function pingHealth(){
-    if(!API || !apiDot) return;
-    try{
-      const r = await fetchWithTimeout(API + '/health', {}, 6000);
-      if(!r.ok) throw 0;
-      await r.json();
-      apiDot.className = 'api-dot ok';
-    }catch(_){
-      apiDot.className = 'api-dot down';
-    }
-  }
-  setInterval(pingHealth, 60000);
-
-  // ===== search + analyze =====
   const input = $('ticker');
   const go = $('go');
   const box = $('suggestBox');
@@ -33,158 +9,237 @@
 
   const setText = (id,val)=>{ const el = $(id); if(el) el.textContent = val; };
 
-  let items = [], activeIdx = -1, lastQ = "", timer = null;
+  let items = [];
+  let activeIdx = -1;
+  let lastQ = "";
+  let timer = null;
 
+  /* ---------- Suggestions (typeahead) ---------- */
   function showSuggest(show){ if(!box) return; box.classList.toggle('hidden', !show || items.length === 0); }
-  function clearSuggest(){ items=[]; if(box){ box.innerHTML=""; box.classList.add('hidden'); } activeIdx=-1; }
-  function renderSuggest(){
+  function clearSuggest(){ items = []; if(box){ box.innerHTML = ""; box.classList.add('hidden'); } activeIdx = -1; }
+  function renderSuggest() {
     if(!box) return;
-    box.innerHTML="";
-    items.forEach((it, idx)=>{
-      const row=document.createElement('div');
-      row.className='suggest-item'+(idx===activeIdx?' active':'');
+    box.innerHTML = "";
+    items.forEach((it, idx) => {
+      const row = document.createElement('div');
+      row.className = 'suggest-item' + (idx === activeIdx ? ' active' : '');
       row.setAttribute('role','option');
-      row.innerHTML=`<div class="left">${it.symbol||''}</div>
-                     <div class="right">${(it.shortname||'').slice(0,70)} ${it.exchange?' · '+it.exchange:''}</div>`;
-      row.addEventListener('mousedown', e=>{ e.preventDefault(); choose(idx); });
+      row.innerHTML = `
+        <div class="left">${it.symbol || ''}</div>
+        <div class="right">${(it.shortname || '').slice(0,70)} ${it.exchange ? ' · ' + it.exchange : ''}</div>
+      `;
+      row.addEventListener('mousedown', (e) => { e.preventDefault(); choose(idx); });
       box.appendChild(row);
     });
     showSuggest(true);
   }
+
   async function fetchSuggest(q){
+    if(!API){ console.warn("API_BASE not set"); return clearSuggest(); }
     try{
-      const res = await fetchWithTimeout(API + '/suggest?q=' + encodeURIComponent(q), {}, 10000);
-      if(!res.ok) throw 0;
+      const res = await fetch(API + '/suggest?q=' + encodeURIComponent(q));
+      if(!res.ok) throw new Error(await res.text());
       const data = await res.json();
-      items = (data.results||[]).slice(0,10);
+      items = (data.results || []).slice(0,10);
       renderSuggest();
-    }catch(_){ clearSuggest(); }
+    }catch(e){
+      console.warn("suggest error:", e.message || e);
+      clearSuggest();
+    }
   }
-  function debounce(fn, ms){ return (...a)=>{ clearTimeout(timer); timer=setTimeout(()=>fn(...a), ms); }; }
-  const onType = debounce(()=>{ const q=(input?.value||'').trim(); if(!q || q===lastQ){ if(!q) clearSuggest(); return; } lastQ=q; fetchSuggest(q); }, 200);
-  function choose(i){ if(i<0||i>=items.length) return; if(input) input.value = items[i].symbol; clearSuggest(); run(); }
+
+  function debounce(fn, ms){
+    return function(...args){
+      clearTimeout(timer);
+      timer = setTimeout(()=>fn.apply(this,args), ms);
+    };
+  }
+
+  const onType = debounce(() => {
+    const q = (input?.value || '').trim();
+    if (!q || q === lastQ) { if(!q) clearSuggest(); return; }
+    lastQ = q;
+    fetchSuggest(q);
+  }, 200);
+
+  function choose(idx){
+    if (idx < 0 || idx >= items.length) return;
+    const sym = items[idx].symbol;
+    if(input) input.value = sym;
+    clearSuggest();
+    run();
+  }
+
   function onKeyDown(e){
     if (!box || box.classList.contains('hidden')) return;
-    if (e.key==='ArrowDown'){ e.preventDefault(); activeIdx=Math.min(items.length-1, activeIdx+1); renderSuggest(); }
-    else if (e.key==='ArrowUp'){ e.preventDefault(); activeIdx=Math.max(0, activeIdx-1); renderSuggest(); }
-    else if (e.key==='Enter'){ if(activeIdx>=0){ e.preventDefault(); choose(activeIdx); } }
-    else if (e.key==='Escape'){ clearSuggest(); }
+    if (e.key === 'ArrowDown') { e.preventDefault(); activeIdx = Math.min(items.length-1, activeIdx+1); renderSuggest(); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); activeIdx = Math.max(0, activeIdx-1); renderSuggest(); }
+    else if (e.key === 'Enter') { if (activeIdx >= 0) { e.preventDefault(); choose(activeIdx); } }
+    else if (e.key === 'Escape') { clearSuggest(); }
   }
 
+  /* ---------- Signal rendering ---------- */
   function setSignal(up, bindu){
-    const chip=$('cSignal'); if(chip){ chip.className='chip '+(up?'up':'down'); chip.textContent=(up?'▲ Bullish':'▼ Bearish')+` • Bindu ${bindu}`; }
-    const note=$('predNote'); if(note){ note.classList.remove('up','down'); note.classList.add(up?'up':'down'); note.textContent='Prediction For Next Day: '+(up?'▲ Price Up (1)':'▼ Price Down (0)'); }
-  }
-  function showApiDown(){
-    const note=$('predNote'); if(note){ note.classList.remove('up','down'); note.textContent='Prediction For Next Day: API unavailable. Try again.'; }
-    if(apiDot) apiDot.className='api-dot down';
+    const chip = $('cSignal');
+    if (chip){
+      chip.className = 'chip ' + (up ? 'up' : 'down');
+      chip.textContent = (up ? '▲ Bullish' : '▼ Bearish') + ` • Bindu ${bindu}`;
+    }
+
+    const note = $('predNote');
+    if (note){
+      note.classList.remove('up','down');
+      note.classList.add(up ? 'up' : 'down');
+      note.textContent = 'Prediction For Next Day: ' + (up ? '▲ Price Up (1)' : '▼ Price Down (0)');
+    }
   }
 
+  /* ---------- Core run: fetch OHLC + compute bindu ---------- */
   async function run(){
-    const q=(input?.value||'').trim();
+    const q = (input?.value||'').trim();
     if(!q){ alert('Enter a company or ticker'); return; }
+
     if(card) card.classList.remove('hidden');
-    setText('cTicker','Fetching… '+q.toUpperCase());
+    setText('cTicker', 'Fetching… ' + q.toUpperCase());
     setText('cOpen','-'); setText('cHigh','-'); setText('cLow','-'); setText('cClose','-');
-    const sig=$('cSignal'); if(sig){ sig.className='chip'; sig.textContent='Loading...'; }
-    setText('predNote','Prediction For Next Day: -');
+    const sig = $('cSignal'); if(sig){ sig.className = 'chip'; sig.textContent = 'Loading...'; }
+    setText('predNote', 'Prediction For Next Day: -');
 
     try{
-      const r = await fetchWithTimeout(API + '/stock?q=' + encodeURIComponent(q), {}, 12000);
-      if(!r.ok) throw 0;
+      const r = await fetch(API + '/stock?q=' + encodeURIComponent(q));
+      if(!r.ok) throw new Error(await r.text());
       const d = await r.json();
+
       const {ticker, open, high, low, close} = d;
       setText('cTicker', ticker);
       setText('cOpen', Number(open).toFixed(2));
       setText('cHigh', Number(high).toFixed(2));
       setText('cLow',  Number(low).toFixed(2));
       setText('cClose',Number(close).toFixed(2));
+
       const o=open%9, h=high%9, l=low%9, c=close%9;
       const layer1=(o+c)%9, layer2=(h-l+9)%9, bindu=(layer1*layer2)%9;
-      setSignal(bindu>=5, bindu);
-      pingHealth(); // refresh dot after heavy call
-    }catch(_){
-      setText('cTicker','Error');
-      const chip=$('cSignal'); if(chip){ chip.className='chip down'; chip.textContent='Failed to fetch'; }
-      showApiDown();
+      const up = bindu >= 5;
+      setSignal(up, bindu);
+    }catch(e){
+      setText('cTicker', 'Error');
+      const chip = $('cSignal'); if(chip){ chip.className='chip down'; chip.textContent='Failed to fetch'; }
+      setText('predNote', 'Prediction For Next Day: -');
+      console.error("stock error:", e.message || e);
     }
   }
 
-  // ======= WORLD INDICES ticker now calls /indices ONCE =======
-  function buildTrackFromRows(rows){
-    const track = $('tickerTrack'), viewport = track?.parentElement;
+  /* ---------- WORLD INDICES: smooth marquee ribbon ---------- */
+  const TICKER_SYMBOLS = [
+    {name:'S&P 500',    sym:'^GSPC'},
+    {name:'Dow Jones',  sym:'^DJI'},
+    {name:'Nasdaq 100', sym:'^NDX'},
+    {name:'FTSE 100',   sym:'^FTSE'},
+    {name:'DAX',        sym:'^GDAXI'},
+    {name:'CAC 40',     sym:'^FCHI'},
+    {name:'Nikkei 225', sym:'^N225'},
+    {name:'Hang Seng',  sym:'^HSI'},
+    {name:'ASX 200',    sym:'^AXJO'},
+    {name:'Sensex',     sym:'^BSESN'},
+    {name:'Nifty 50',   sym:'^NSEI'},
+    {name:'Bank Nifty', sym:'^NSEBANK'}
+  ];
+
+  async function fetchIndex(symObj){
+    try{
+      const r = await fetch(API + '/stock?q=' + encodeURIComponent(symObj.sym));
+      if(!r.ok) throw new Error(await r.text());
+      const d = await r.json();
+      const px = Number(d.close), op = Number(d.open);
+      const chg = px - op, pct = op ? (chg/op*100) : 0;
+      return {
+        name: symObj.name,
+        price: isFinite(px) ? px.toFixed(2) : '-',
+        chg: isFinite(chg) ? chg.toFixed(2) : '0.00',
+        pct: isFinite(pct) ? pct.toFixed(2) : '0.00',
+        up: chg >= 0
+      };
+    }catch(e){
+      return {name:symObj.name, price:'-', chg:'0.00', pct:'0.00', up:false};
+    }
+  }
+
+  async function buildTickerOnce(){
+    const track = document.getElementById('tickerTrack');
+    const viewport = track?.parentElement;
     if(!track || !viewport) return;
-    track.innerHTML='';
-    const make = d => {
-      const el=document.createElement('span');
-      el.className='ticker-item';
+
+    // get data
+    const rows = [];
+    for(const s of TICKER_SYMBOLS){ /* eslint-disable no-await-in-loop */
+      rows.push(await fetchIndex(s));
+    }
+
+    // build one pass
+    track.innerHTML = '';
+    const makeItem = (d) => {
+      const el = document.createElement('span');
+      el.className = 'ticker-item';
       el.innerHTML = `
         <span class="nm">${d.name}</span>
         <span class="px">${d.price}</span>
-        <span class="chg ${d.up ? 'up':'down'}">${d.up?'▲':'▼'} ${Number(d.chg).toFixed(2)} (${d.up?'+':''}${Number(d.pct).toFixed(2)}%)</span>`;
+        <span class="chg ${d.up ? 'up' : 'down'}">${d.up ? '▲' : '▼'} ${d.chg} (${d.up?'+':''}${d.pct}%)</span>
+      `;
       return el;
     };
-    rows.forEach(d=>track.appendChild(make(d)));
-    while (track.scrollWidth < viewport.clientWidth * 2.2) rows.forEach(d=>track.appendChild(make(d)));
-  }
+    rows.forEach(d => track.appendChild(makeItem(d)));
 
-  async function loadIndicesOnce(){
-    const track = $('tickerTrack'); if(!track) return;
-    // show cached immediately
-    try{
-      const cached = localStorage.getItem('tickerRows');
-      if(cached){ const rows = JSON.parse(cached); if(Array.isArray(rows)&&rows.length) buildTrackFromRows(rows); }
-    }catch(_){}
-
-    try{
-      const r = await fetchWithTimeout(API + '/indices', {}, 15000);
-      if(!r.ok) throw 0;
-      const data = await r.json();
-      const rows = data.results || [];
-      buildTrackFromRows(rows);
-      try{ localStorage.setItem('tickerRows', JSON.stringify(rows)); }catch(_){}
-      pingHealth(); // green dot if success
-    }catch(_){
-      if(!track.children.length) track.textContent='Markets ticker unavailable. Retrying…';
-      if(apiDot) apiDot.className='api-dot down';
+    // duplicate until > 2× viewport width for seamless scroll
+    while (track.scrollWidth < viewport.clientWidth * 2.2) {
+      rows.forEach(d => track.appendChild(makeItem(d)));
     }
   }
 
   function startTickerAnimation(){
-    const track=$('tickerTrack'); if(!track) return;
-    let pos=0, speed=40, last=null, paused=false;
-    const step=t=>{
-      if(paused){ last=t; return requestAnimationFrame(step); }
-      if(!last) last=t;
-      const dt=(t-last)/1000; last=t;
-      pos -= speed*dt;
-      const half=track.scrollWidth/2;
-      if(-pos>=half) pos+=half;
-      track.style.transform=`translateX(${pos}px)`;
-      requestAnimationFrame(step);
+    const track = document.getElementById('tickerTrack');
+    if(!track) return;
+
+    let pos = 0;            // translateX in px
+    const speed = 40;       // px per second
+    let last = null;
+    let paused = false;
+
+    const onFrame = (t) => {
+      if (paused) { last = t; requestAnimationFrame(onFrame); return; }
+      if (!last) last = t;
+      const dt = (t - last) / 1000; last = t;
+      pos -= speed * dt;
+
+      const half = track.scrollWidth / 2;
+      if (-pos >= half) pos += half;       // loop seamlessly
+      track.style.transform = `translateX(${pos}px)`;
+      requestAnimationFrame(onFrame);
     };
-    const viewport=track.parentElement;
-    viewport.addEventListener('mouseenter', ()=>paused=true);
-    viewport.addEventListener('mouseleave', ()=>paused=false);
-    requestAnimationFrame(step);
+
+    const viewport = track.parentElement;
+    viewport.addEventListener('mouseenter', ()=> paused = true);
+    viewport.addEventListener('mouseleave', ()=> paused = false);
+
+    requestAnimationFrame(onFrame);
   }
 
   async function initTicker(){
-    await loadIndicesOnce();
+    await buildTickerOnce();
     startTickerAnimation();
-    setInterval(loadIndicesOnce, 10*60*1000); // refresh every 10 min
+    setInterval(async ()=>{ await buildTickerOnce(); }, 10 * 60 * 1000); // refresh every 10 min
   }
 
-  // ===== init =====
-  window.addEventListener('load', ()=>{
-    pingHealth();
-    initTicker();
+  /* ---------- Init ---------- */
+  window.addEventListener('load', async () => {
+    initTicker();                       // start the scrolling ribbon
   });
+
   if(input){
     input.addEventListener('input', onType);
     input.addEventListener('keydown', onKeyDown);
-    input.addEventListener('keydown', e=>{ if(e.key==='Enter' && (!box || box.classList.contains('hidden'))) run(); });
-    input.addEventListener('blur', ()=> setTimeout(clearSuggest,120));
+    input.addEventListener('keydown', e => { if(e.key==='Enter' && (!box || box.classList.contains('hidden'))) run(); });
+    input.addEventListener('blur', () => setTimeout(clearSuggest, 120));
   }
   if(go) go.addEventListener('click', run);
+
 })();
