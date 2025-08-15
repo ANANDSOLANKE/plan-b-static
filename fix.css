@@ -1,0 +1,11 @@
+/* --- Fix overlap of footer/ticker hiding bottom content --- */
+:root{
+  --ticker-height: 44px;
+  --footer-safe: 72px;
+}
+.ticker{ position: relative !important; bottom: auto !important; z-index: 1; }
+.footer{ position: relative !important; bottom: auto !important; z-index: 1; }
+body{ padding-bottom: calc(var(--ticker-height) + var(--footer-safe)); }
+main.wrap{ padding-bottom: 24px; }
+.wrap{ overflow: visible !important; }
+.panel{ margin-bottom: 24px; }
