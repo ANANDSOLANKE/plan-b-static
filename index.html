@@ -10,6 +10,23 @@
   <link rel="stylesheet" href="style.css" />
   <link rel="stylesheet" href="fix.css" />
 
+  <!-- Smooth scrolling ticker animation -->
+  <style>
+    .ticker-viewport { overflow: hidden; }
+    .ticker-track {
+      white-space: nowrap;
+      display: inline-block;
+      will-change: transform;
+      animation: tickerScroll 35s linear infinite;
+    }
+    .tick { display: inline-block; margin-right: 2rem; }
+    @keyframes tickerScroll {
+      0%   { transform: translateX(0); }
+      100% { transform: translateX(-50%); }
+    }
+  </style>
+
+  <!-- AdSense -->
   <meta name="google-adsense-account" content="ca-pub-6957786074161829" />
   <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6957786074161829" crossorigin="anonymous"></script>
 </head>
@@ -42,7 +59,7 @@
 
       <div class="search-stack">
         <div class="row">
-          <input id="ticker" placeholder="Type company or ticker (e.g., Tata Motors, RELIANCE.NS, AAPL)" />
+          <input id="ticker" placeholder="Type company or ticker (e.g., Tata Motors, RELIANCE.NS, AAPL)" autocomplete="off" />
           <button id="go" class="btn">Analyze</button>
         </div>
         <div id="suggestBox" class="suggest hidden" role="listbox" aria-label="Suggestions"></div>
@@ -54,24 +71,20 @@
           <span id="mktYes" class="chip" title="Market open now?">-</span>
           <div id="cSignal" class="chip">Awaiting...</div>
         </header>
-
         <div class="ohlc">
           <div class="kv"><span>Open</span><strong id="cOpen">-</strong></div>
           <div class="kv"><span>High</span><strong id="cHigh">-</strong></div>
           <div class="kv"><span>Low</span><strong id="cLow">-</strong></div>
           <div class="kv"><span>Close</span><strong id="cClose">-</strong></div>
         </div>
-
-        <!-- Exact format required -->
+        <!-- Exact required text format -->
         <p class="pred-note" id="predNote">Prediction For Next Day Date: - : ▲ Price Up (1)</p>
-
-        <!-- Market status -->
         <p class="muted tiny" id="mktDisplay" aria-live="polite">Display Market: -</p>
       </article>
     </section>
   </main>
 
-  <!-- Global indices ticker -->
+  <!-- Global indices scrolling ribbon -->
   <div class="ticker" aria-label="Global market ticker">
     <div class="wrap ticker-viewport">
       <div class="ticker-track" id="tickerTrack"></div>
@@ -92,11 +105,15 @@
     </div>
   </footer>
 
-  <!-- ONE backend for ALL endpoints -->
+  <!-- ONE place to configure API hosts -->
   <script>
-    // IMPORTANT: use your Render URL here
-    window.API_BASE = "https://stockpricepredictions-api.onrender.com";
+    // Primary = your Render API (has /suggest, /stock, /predict-next)
+    window.API_PRIMARY = "https://stockpricepredictions-api.onrender.com";
+    // Fallback = your old host (in case suggest/stock isn’t on Render yet)
+    window.API_FALLBACK = "https://api.stockpricepredictions.com";
   </script>
-  <script src="script.js"></script>
+
+  <!-- App -->
+  <script src="script.js?v=13"></script>
 </body>
 </html>
