@@ -39,7 +39,7 @@
   <!-- Main -->
   <main class="wrap">
     <section class="panel">
-      <h2 class="hero-title">Find a stock. See today&rsquo;s OHLC and a mystical hint for tomorrow.</h2>
+      <h2 class="hero-title">Find a stock. See today’s OHLC and a mystical hint for tomorrow.</h2>
       <p class="lede">Type a company or ticker to get live OHLC data and our Sree Yantra based next-day signal.</p>
 
       <div class="search-stack">
@@ -64,6 +64,16 @@
         <p class="pred-note" id="predNote">Prediction For Next Day: -</p>
       </article>
     </section>
+
+    <!-- Added: Prediction widget (IDs are unique to avoid conflicts with your app) -->
+    <section class="panel" style="margin-top:1.5rem">
+      <h3>Quick Next-Day Prediction</h3>
+      <div class="row">
+        <input id="pn-symbol" placeholder="AAPL, TCS.NS, RELIANCE.NS" />
+        <button id="pn-go" class="btn">Predict Next Close</button>
+      </div>
+      <div id="pn-result"></div>
+    </section>
   </main>
 
   <!-- Global indices scrolling ribbon (above footer) -->
@@ -87,21 +97,77 @@
     </div>
   </footer>
 
-  <!-- Config + App -->
+  <!-- Your app config + code (unchanged so your existing site stays working) -->
   <script>window.API_BASE = "https://api.stockpricepredictions.com";</script>
   <script src="script.js"></script>
 
-<!-- Added: Prediction widget -->
-<div class="panel" style="margin-top:1.5rem">
-  <label for="symbol">Symbol</label>
-  <div class="row">
-    <input id="symbol" placeholder="AAPL, TCS.NS, RELIANCE.NS" />
-    <button id="go">Predict Next Close</button>
-  </div>
-  <div id="result"></div>
-</div>
-<script>window.API_BASE = "https://stockpricepredictions-api.onrender.com";</script>
-<script src="predict-next.js?v=5"></script>
+  <!-- Inline widget logic (uses Render API directly, no conflicts with your app) -->
+  <script>
+    (function(){
+      const API = "https://stockpricepredictions-api.onrender.com"; // backend with /predict-next
+      const input = document.getElementById('pn-symbol');
+      const btn = document.getElementById('pn-go');
+      const out = document.getElementById('pn-result');
 
+      function fmt(v){
+        if(v == null || Number.isNaN(v)) return '-';
+        const n = Number(v);
+        if(!Number.isFinite(n)) return String(v);
+        return n.toLocaleString(undefined, { maximumFractionDigits: 2 });
+      }
+
+      async function fetchPrediction(sym){
+        const url = API.replace(/\/$/, '') + "/predict-next?symbol=" + encodeURIComponent(sym);
+        const res = await fetch(url, { mode: 'cors' });
+        const text = await res.text();
+        if(!res.ok){
+          throw new Error("API " + res.status + ": " + text);
+        }
+        try { return JSON.parse(text); } catch { throw new Error("Non-JSON: " + text); }
+      }
+
+      function render(data){
+        const p = data.prediction || {};
+        const prev = data.previous_day || {};
+        out.innerHTML = `
+          <div class="card">
+            <h4>Prediction for <strong>${p.target_date || '-'}</strong></h4>
+            <div class="grid two">
+              <div>
+                <div class="muted">Based on previous day (OHLC) — ${prev.date || '-'}</div>
+                <ul class="kv">
+                  <li><span>Open</span><b>${fmt(prev.open)}</b></li>
+                  <li><span>High</span><b>${fmt(prev.high)}</b></li>
+                  <li><span>Low</span><b>${fmt(prev.low)}</b></li>
+                  <li><span>Close</span><b>${fmt(prev.close)}</b></li>
+                  <li><span>Volume</span><b>${fmt(prev.volume)}</b></li>
+                </ul>
+              </div>
+              <div class="big-num">
+                <div class="muted">Next-day predicted close</div>
+                <div class="value">${fmt(p.predicted_close)}</div>
+                <div class="muted tiny">Method: ${p.method || '-'}</div>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+
+      async function run(){
+        const sym = (input && input.value || "RELIANCE.NS").trim().toUpperCase();
+        if(!sym){ out.textContent = "Enter a symbol"; return; }
+        try{
+          out.innerHTML = "<div class='muted'>Loading…</div>";
+          const data = await fetchPrediction(sym);
+          render(data);
+        }catch(err){
+          out.innerHTML = "<div class='card'>" + String(err.message) + "</div>";
+        }
+      }
+
+      if(btn) btn.addEventListener('click', run);
+      if(input) input.addEventListener('keydown', e => { if(e.key === 'Enter') run(); });
+    })();
+  </script>
 </body>
 </html>
