@@ -8,10 +8,8 @@
 
   <link rel="icon" type="image/png" href="logo.png" />
   <link rel="stylesheet" href="style.css" />
-  <!-- Footer/Ticker overlap fix -->
   <link rel="stylesheet" href="fix.css" />
 
-  <!-- Google AdSense (Auto Ads only) -->
   <meta name="google-adsense-account" content="ca-pub-6957786074161829" />
   <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6957786074161829" crossorigin="anonymous"></script>
 </head>
@@ -23,7 +21,7 @@
         <img class="logo" src="logo.png" alt="Stock Price Predictions Logo" />
         <div>
           <h1>Shree Yantra <span>Stock Predictor</span></h1>
-          <p class="tag">Vedic-inspired signals &bull; Real OHLC &bull; Free</p>
+          <p class="tag">Vedic-inspired signals • Real OHLC • Free</p>
         </div>
       </div>
       <nav class="nav">
@@ -53,8 +51,10 @@
       <article id="card" class="card hidden" aria-live="polite">
         <header class="card-head">
           <h3 id="cTicker">-</h3>
+          <span id="mktYes" class="chip" title="Market open now?">-</span>
           <div id="cSignal" class="chip">Awaiting...</div>
         </header>
+
         <div class="ohlc">
           <div class="kv"><span>Open</span><strong id="cOpen">-</strong></div>
           <div class="kv"><span>High</span><strong id="cHigh">-</strong></div>
@@ -62,13 +62,16 @@
           <div class="kv"><span>Close</span><strong id="cClose">-</strong></div>
         </div>
 
-        <!-- This line will be ENHANCED with dates & predicted close by the inline script below -->
-        <p class="pred-note" id="predNote">Prediction For Next Day: ▲ Price Up (1)</p>
+        <!-- This line will be replaced to: "Prediction For Next Day Date: YYYY-MM-DD : ▲ Price Up (1)" -->
+        <p class="pred-note" id="predNote">Prediction For Next Day Date: - : ▲ Price Up (1)</p>
+
+        <!-- Market status line -->
+        <p class="muted tiny" id="mktDisplay" aria-live="polite">Display Market: -</p>
       </article>
     </section>
   </main>
 
-  <!-- Global indices scrolling ribbon (above footer) -->
+  <!-- Global indices ticker -->
   <div class="ticker" aria-label="Global market ticker">
     <div class="wrap ticker-viewport">
       <div class="ticker-track" id="tickerTrack"></div>
@@ -78,7 +81,7 @@
   <!-- Footer -->
   <footer class="footer">
     <div class="wrap footer-content">
-      <p>© 2025 StockPricePredictions.com &bull; Signals are informational only &bull; <a href="privacy.html" target="_blank" rel="noopener">Privacy</a></p>
+      <p>© 2025 StockPricePredictions.com • Signals are informational only • <a href="privacy.html" target="_blank" rel="noopener">Privacy</a></p>
       <div class="social-icons">
         <a href="#" target="_blank" rel="noopener" aria-label="Facebook"><img src="icons/facebook.svg" alt="Facebook"></a>
         <a href="#" target="_blank" rel="noopener" aria-label="Twitter"><img src="icons/twitter.svg" alt="Twitter"></a>
@@ -89,71 +92,71 @@
     </div>
   </footer>
 
-  <!-- Your app config + code (unchanged so your existing site stays working) -->
+  <!-- Your existing app config + code -->
   <script>
-    // Your main app API (unchanged)
     window.API_BASE = "https://api.stockpricepredictions.com";
   </script>
   <script src="script.js"></script>
 
-  <!-- Inline enhancer: uses your existing search/card, appends DATES from Render API to #predNote -->
+  <!-- Enhancer: uses Render API to get target date + market open/closed -->
   <script>
     (function () {
-      // Use your Render API that has /predict-next
       const PRED_BASE = "https://stockpricepredictions-api.onrender.com";
+      const elTicker    = document.getElementById("cTicker");
+      const elPredNote  = document.getElementById("predNote");
+      const elSignal    = document.getElementById("cSignal");
+      const elYes       = document.getElementById("mktYes");
+      const elDisplay   = document.getElementById("mktDisplay");
+      const input       = document.getElementById("ticker");
+      const btn         = document.getElementById("go");
 
-      const elTicker = document.getElementById("cTicker");
-      const elPredNote = document.getElementById("predNote");
-      const input = document.getElementById("ticker");
-      const btn = document.getElementById("go");
-
-      if (!elPredNote) return;
-
-      function fmt(v){
-        if(v == null || Number.isNaN(v)) return "-";
-        const n = Number(v);
-        if(!Number.isFinite(n)) return String(v);
-        return n.toLocaleString(undefined, { maximumFractionDigits: 2 });
+      function currentSignalText(){
+        // take the part after the last colon (e.g., "▲ Price Up (1)")
+        const raw = (elSignal && elSignal.textContent) ? elSignal.textContent : (elPredNote.textContent || "");
+        const i = raw.lastIndexOf(":");
+        return (i >= 0 ? raw.slice(i+1) : raw).trim() || "▲";
       }
 
-      function appendDates(data) {
-        if (!data || !data.prediction || !data.previous_day) return;
-        const p = data.prediction;
-        const prev = data.previous_day;
-
-        // Keep your original text; append dates + predicted close
-        const base = elPredNote.textContent || "Prediction For Next Day:";
-        const extra = ` — Based on ${prev.date || "-"} → for ${p.target_date || "-"} (Pred Close: ${fmt(p.predicted_close)})`;
-
-        if (!/— Based on /.test(base)) {
-          elPredNote.textContent = base + extra;
-        } else {
-          elPredNote.textContent = base.replace(/— Based on .+$/, extra);
-        }
+      function rewritePrediction(targetDate){
+        // EXACT required format:
+        // "Prediction For Next Day Date: YYYY-MM-DD : ▲ Price Up (1)"
+        const signal = currentSignalText();
+        elPredNote.textContent = `Prediction For Next Day Date: ${targetDate || "-"} : ${signal}`;
       }
 
-      async function fetchPrediction(sym) {
-        const url = PRED_BASE.replace(/\/$/, "") + "/predict-next?symbol=" + encodeURIComponent(sym);
+      function setMarket(openNow, venue){
+        if (elYes)     elYes.textContent = openNow ? "Yes" : "No";
+        if (elDisplay) elDisplay.textContent = `Display Market: ${openNow ? "Open" : "Closed"}${venue ? " ("+venue+")" : ""}`;
+        // Optional: style chip
+        elYes.classList.toggle("chip--ok", !!openNow);
+        elYes.classList.toggle("chip--off", !openNow);
+      }
+
+      async function fetchPrediction(sym){
         try {
+          const url = PRED_BASE.replace(/\/$/, "") + "/predict-next?symbol=" + encodeURIComponent(sym);
           const res = await fetch(url, { mode: "cors" });
           const txt = await res.text();
-          if (!res.ok) throw new Error("HTTP " + res.status + ": " + txt);
+          if (!res.ok) throw new Error("HTTP "+res.status+": "+txt);
           const data = JSON.parse(txt);
-          appendDates(data);
-        } catch (err) {
-          // silent fail (do not break your existing UI)
-          console.warn("[predict-next] failed:", err);
+          const target = data?.prediction?.target_date || "-";
+          const openNow = !!(data?.market_meta?.market_open_now);
+          const venue   = data?.market_meta?.venue || "";
+
+          rewritePrediction(target);
+          setMarket(openNow, venue);
+        } catch (e) {
+          console.warn("[enhancer] failed", e);
         }
       }
 
       function symbolFromValue(v) {
         const t = String(v || "").trim();
-        // Prefer tokens like RELIANCE.NS if present
         const token = t.split(/\s+/).find(s => /\.\w+$/.test(s));
         return (token || t).toUpperCase();
       }
 
-      // Watch for your app updating #cTicker
+      // Watch when your card updates
       if (elTicker) {
         let last = elTicker.textContent;
         const mo = new MutationObserver(() => {
@@ -164,18 +167,18 @@
             fetchPrediction(symbolFromValue(fallback));
           }
         });
-        mo.observe(elTicker, { characterData: true, childList: true, subtree: true });
+        mo.observe(elTicker, { childList: true, characterData: true, subtree: true });
       }
 
-      // Also trigger after clicks/Enter so we catch the very first load
-      function triggerLater() {
+      // Also attach to Analyze / Enter to catch first lookup
+      function triggerAfterApp(){
         setTimeout(() => {
           const v = (input && input.value) ? input.value : (elTicker && elTicker.textContent) || "";
           if (v) fetchPrediction(symbolFromValue(v));
         }, 150);
       }
-      if (btn) btn.addEventListener("click", triggerLater, { capture: true });
-      if (input) input.addEventListener("keydown", e => { if (e.key === "Enter") triggerLater(); }, { capture: true });
+      if (btn)   btn.addEventListener("click", triggerAfterApp, { capture: true });
+      if (input) input.addEventListener("keydown", e => { if (e.key === "Enter") triggerAfterApp(); }, { capture: true });
     })();
   </script>
 </body>
