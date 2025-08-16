@@ -90,5 +90,18 @@
   <!-- Config + App -->
   <script>window.API_BASE = "https://api.stockpricepredictions.com";</script>
   <script src="script.js"></script>
+
+<!-- Added: Prediction widget -->
+<div class="panel" style="margin-top:1.5rem">
+  <label for="symbol">Symbol</label>
+  <div class="row">
+    <input id="symbol" placeholder="AAPL, TCS.NS, RELIANCE.NS" />
+    <button id="go">Predict Next Close</button>
+  </div>
+  <div id="result"></div>
+</div>
+<script>window.API_BASE = "https://stockpricepredictions-api.onrender.com";</script>
+<script src="predict-next.js?v=5"></script>
+
 </body>
 </html>

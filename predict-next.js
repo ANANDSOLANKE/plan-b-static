@@ -1,9 +1,8 @@
 (function(){
-  const API = window.API_BASE || "http://localhost:5000";
+  const API = (window.API_BASE || "https://stockpricepredictions-api.onrender.com").replace(/\/$/, "");
   const input = document.getElementById('symbol');
   const btn = document.getElementById('go');
   const out = document.getElementById('result');
-  const dateBox = document.getElementById('dates');
 
   async function fetchPrediction(sym){
     const url = `${API}/predict-next?symbol=${encodeURIComponent(sym)}`;
@@ -15,8 +14,14 @@
     return await res.json();
   }
 
+  function fmt(v){
+    if(v == null || Number.isNaN(v)) return '-';
+    const n = Number(v);
+    if(!Number.isFinite(n)) return String(v);
+    return n.toLocaleString(undefined, { maximumFractionDigits: 2 });
+  }
+
   function renderPrediction(data){
-    if(!out) return;
     const p = data.prediction || {};
     const prev = data.previous_day || {};
     out.innerHTML = `
@@ -43,15 +48,9 @@
     `;
   }
 
-  function fmt(v){
-    if(v === null || v === undefined || Number.isNaN(v)) return '-';
-    const n = Number(v);
-    if(!Number.isFinite(n)) return String(v);
-    return n.toLocaleString(undefined, { maximumFractionDigits: 2 });
-  }
-
   async function run(){
-    const sym = (input && input.value || "AAPL").trim().toUpperCase();
+    if(!input || !btn || !out){ return; }
+    const sym = (input.value || "RELIANCE.NS").trim().toUpperCase();
     try{
       out.innerHTML = "<div class='muted'>Loading...</div>";
       const data = await fetchPrediction(sym);
@@ -63,12 +62,4 @@
 
   if(btn) btn.addEventListener('click', run);
   if(input) input.addEventListener('keydown', e => { if(e.key==='Enter') run(); });
-
-  // auto-run if symbol preset via query (?s=)
-  const params = new URLSearchParams(location.search);
-  const qs = params.get('s');
-  if(qs){
-    if(input) input.value = qs.toUpperCase();
-    run();
-  }
 })();
