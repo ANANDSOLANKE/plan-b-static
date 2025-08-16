@@ -1,6 +1,6 @@
 (function () {
   // ====== Config ======
-  const API = (window.API_BASE || "").replace(/\/+$/, "");   // e.g., "https://your-api.onrender.com"
+  const API = (window.API_BASE || "").replace(/\/+$/, "");   // e.g., "https://stockpricepredictions-api.onrender.com"
   const MAX_SUGGESTIONS = 8;
   const DEBOUNCE_MS = 180;
 
@@ -17,7 +17,7 @@
   const elSignal = $("cSignal");
   const elNote = $("predNote");
 
-  // Create suggestions container if missing
+  // Suggestions container
   let elSug = $("suggestions");
   if (!elSug) {
     elSug = document.createElement("div");
@@ -32,8 +32,6 @@
     elSug.style.display = "none";
     elSug.style.maxHeight = "280px";
     elSug.style.overflowY = "auto";
-
-    // Try to place under input
     if (elInput && elInput.parentElement) {
       elInput.parentElement.style.position = "relative";
       elInput.parentElement.appendChild(elSug);
@@ -50,7 +48,7 @@
     }
     elSug.innerHTML = "";
     items.slice(0, MAX_SUGGESTIONS).forEach((q) => {
-      const sym = q.symbol || q.symbol || "";
+      const sym = q.symbol || "";
       const name = q.shortname || q.longname || q.name || "";
       const exch = q.exchange || q.exchDisp || "";
       const li = document.createElement("div");
@@ -81,7 +79,6 @@
   }
 
   async function fetchSuggestions(q) {
-    // Yahoo Finance search API (unofficial, but common)
     const url = `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(q)}&quotesCount=${MAX_SUGGESTIONS}&newsCount=0`;
     const res = await fetch(url, { cache: "no-store" });
     if (!res.ok) return [];
@@ -102,7 +99,8 @@
   }
 
   async function fetchStock(ticker) {
-    const url = `${API}/stock?q=${encodeURIComponent(ticker)}`;
+    const base = API || ""; // same-origin if not set (but we set it in index.html)
+    const url = `${base}/stock?q=${encodeURIComponent(ticker)}`;
     const r = await fetch(url, { cache: "no-store" });
     if (!r.ok) {
       const msg = await r.text().catch(() => r.statusText);
@@ -114,10 +112,7 @@
   async function run(ticker) {
     try {
       elCard?.classList.add("hidden");
-      if (elSignal) {
-        elSignal.textContent = "Fetching...";
-        elSignal.className = "chip";
-      }
+      if (elSignal) { elSignal.textContent = "Fetching..."; elSignal.className = "chip"; }
 
       const data = await fetchStock(ticker);
 
@@ -145,7 +140,7 @@
     }
   }
 
-  // ====== Events ======
+  // Events
   if (elGo) {
     elGo.addEventListener("click", () => {
       const t = (elInput.value || "").trim();
@@ -161,28 +156,16 @@
         if (t) run(t);
       }
     });
-
-    // Autocomplete on typing (debounced)
     const debounced = debounce(async () => {
       const q = (elInput.value || "").trim();
-      if (!q || q.length < 1) {
-        showSuggestions([]);
-        return;
-      }
-      try {
-        const items = await fetchSuggestions(q);
-        showSuggestions(items);
-      } catch {
-        showSuggestions([]);
-      }
+      if (!q) { showSuggestions([]); return; }
+      try { showSuggestions(await fetchSuggestions(q)); }
+      catch { showSuggestions([]); }
     }, DEBOUNCE_MS);
-
     elInput.addEventListener("input", debounced);
-    // hide suggestions if clicking elsewhere
+
     document.addEventListener("click", (e) => {
-      if (!elSug.contains(e.target) && e.target !== elInput) {
-        elSug.style.display = "none";
-      }
+      if (!elSug.contains(e.target) && e.target !== elInput) elSug.style.display = "none";
     });
   }
 })();
