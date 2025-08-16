@@ -1,0 +1,1 @@
+const API_BASE='https://api.stockpricepredictions.com';console.log('frontend loaded');
