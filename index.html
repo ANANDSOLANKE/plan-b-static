@@ -1,4 +1,3 @@
-
 <!doctype html>
 <html lang="en">
 <head>
@@ -15,6 +14,7 @@
   <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6957786074161829" crossorigin="anonymous"></script>
 </head>
 <body>
+  <!-- Header -->
   <header class="site-header">
     <div class="wrap header-row">
       <div class="brand">
@@ -34,6 +34,7 @@
     </div>
   </header>
 
+  <!-- Main -->
   <main class="wrap">
     <section class="panel">
       <h2 class="hero-title">Find a stock. See today’s OHLC and a mystical hint for tomorrow.</h2>
@@ -61,18 +62,23 @@
           <div class="kv"><span>Close</span><strong id="cClose">-</strong></div>
         </div>
 
+        <!-- Exact format required -->
         <p class="pred-note" id="predNote">Prediction For Next Day Date: - : ▲ Price Up (1)</p>
+
+        <!-- Market status -->
         <p class="muted tiny" id="mktDisplay" aria-live="polite">Display Market: -</p>
       </article>
     </section>
   </main>
 
+  <!-- Global indices ticker -->
   <div class="ticker" aria-label="Global market ticker">
     <div class="wrap ticker-viewport">
       <div class="ticker-track" id="tickerTrack"></div>
     </div>
   </div>
 
+  <!-- Footer -->
   <footer class="footer">
     <div class="wrap footer-content">
       <p>© 2025 StockPricePredictions.com • Signals are informational only • <a href="privacy.html" target="_blank" rel="noopener">Privacy</a></p>
@@ -86,11 +92,11 @@
     </div>
   </footer>
 
-  <!-- Keep your existing API for suggest/stock -->
-  <script>window.API_BASE = "https://api.stockpricepredictions.com";</script>
+  <!-- ONE backend for ALL endpoints -->
+  <script>
+    // IMPORTANT: use your Render URL here
+    window.API_BASE = "https://stockpricepredictions-api.onrender.com";
+  </script>
   <script src="script.js"></script>
-
-  <!-- Enhancer: uses Render /predict-next for date + market status -->
-  <script src="prediction-enhancer.js?v=1"></script>
 </body>
 </html>
