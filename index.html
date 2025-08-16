@@ -105,13 +105,16 @@
     </div>
   </footer>
 
-  <!-- ONE place to configure API hosts -->
-  <script>
-    // Primary = your Render API (has /suggest, /stock, /predict-next)
-    window.API_PRIMARY = "https://stockpricepredictions-api.onrender.com";
-    // Fallback = your old host (in case suggest/stock isn’t on Render yet)
-    window.API_FALLBACK = "https://api.stockpricepredictions.com";
-  </script>
+ <script>
+  // Keep what worked in your ZIP:
+  // This host handled /suggest and /stock previously.
+  window.API_SUGGEST_STOCK = "https://api.stockpricepredictions.com";
+
+  // Your Render backend for the prediction endpoint:
+  window.API_PREDICT = "https://stockpricepredictions-api.onrender.com";
+</script>
+<script src="script.js?v=14"></script>
+
 
   <!-- App -->
   <script src="script.js?v=13"></script>
