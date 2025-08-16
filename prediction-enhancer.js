@@ -1,121 +1,100 @@
-// prediction-enhancer.js (v3, non-blocking + safe)
+// prediction-enhancer.js
 (function () {
-  function safe(fn){ try { fn&&fn(); } catch(e){ console.warn("[enhancer] error:", e); } }
+  // Use dedicated predictor base if set, else fall back to app base
+  const BASE = (window.API_BASE_PRED || window.API_BASE || "").replace(/\/$/, "");
+  if (!BASE) {
+    console.warn("[prediction-enhancer] No API base configured");
+    return;
+  }
 
-  // Run only after the page and your main app script are settled
-  function onReady(fn){
-    if (document.readyState === "complete" || document.readyState === "interactive") {
-      setTimeout(fn, 0);
+  // Elements from your existing card
+  const elTicker = document.getElementById("cTicker");   // shows the chosen symbol/ticker name
+  const elPredNote = document.getElementById("predNote"); // contains "Prediction For Next Day: ▲ Price Up (1)"
+  const input = document.getElementById("ticker");        // your main search box
+  const btn = document.getElementById("go");              // your main Analyze button
+
+  if (!elPredNote) {
+    console.warn("[prediction-enhancer] #predNote not found");
+    return;
+  }
+
+  // Render helper: append dates + predicted close after your existing signal text
+  function renderDatesAppend(data) {
+    if (!data || !data.prediction || !data.previous_day) return;
+
+    const p = data.prediction;
+    const prev = data.previous_day;
+
+    // Existing text (e.g., "Prediction For Next Day: ▲ Price Up (1)")
+    const baseText = elPredNote.textContent || "Prediction For Next Day:";
+
+    // Append date info
+    const extra = ` — Based on ${prev.date || "-"} → for ${p.target_date || "-"} (Pred Close: ${
+      isFinite(+p.predicted_close) ? (+p.predicted_close).toLocaleString(undefined, { maximumFractionDigits: 2 }) : "-"
+    })`;
+
+    // Avoid duplicating if re-rendered
+    if (!baseText.includes("Based on ")) {
+      elPredNote.textContent = baseText + extra;
     } else {
-      document.addEventListener("DOMContentLoaded", fn);
+      // If already appended once, replace the trailing part
+      elPredNote.textContent = baseText.replace(/— Based on .*$/, extra);
     }
   }
 
-  onReady(function(){
-    safe(function(){
-      // Use the predictor backend only for /predict-next
-      var PRED_BASE = "https://stockpricepredictions-api.onrender.com";
+  async function fetchPredict(symbolLike) {
+    const sym = String(symbolLike || "").trim().toUpperCase();
+    if (!sym) return;
+    try {
+      const url = `${BASE}/predict-next?symbol=${encodeURIComponent(sym)}`;
+      const res = await fetch(url, { mode: "cors" });
+      const txt = await res.text();
+      if (!res.ok) throw new Error(`HTTP ${res.status}: ${txt}`);
+      const data = JSON.parse(txt);
+      renderDatesAppend(data);
+    } catch (err) {
+      console.warn("[prediction-enhancer] fetch failed:", err);
+      // Don’t show a visible error; your card stays intact if prediction call fails
+    }
+  }
 
-      // Grab elements (do not error if missing)
-      var elTicker   = document.getElementById("cTicker");
-      var elPredNote = document.getElementById("predNote");
-      var elSignal   = document.getElementById("cSignal");
-      var elYes      = document.getElementById("mktYes");
-      var elDisplay  = document.getElementById("mktDisplay");
-      var input      = document.getElementById("ticker");
-      var btn        = document.getElementById("go");
-
-      if (!elPredNote) return; // don't do anything if your card isn't present
-
-      function currentSignalText(){
-        // Prefer explicit signal chip; fallback to predNote
-        var raw = elSignal && elSignal.textContent ? elSignal.textContent : (elPredNote.textContent || "");
-        // Take the part after the last colon if present
-        var i = raw.lastIndexOf(":");
-        return (i >= 0 ? raw.slice(i+1) : raw).trim() || "▲";
+  // Strategy 1: watch for changes to #cTicker (your app updates it when a stock is loaded)
+  if (elTicker) {
+    let lastVal = elTicker.textContent;
+    const mo = new MutationObserver(() => {
+      const curr = elTicker.textContent && elTicker.textContent.trim();
+      if (curr && curr !== lastVal) {
+        lastVal = curr;
+        // curr may be "RELIANCE.NS" or "RELIANCE (NSE)"; prefer the input if it's a better symbol
+        const fallback = (input && input.value) ? input.value : curr;
+        // Heuristic: pick the first token with a dot (e.g., RELIANCE.NS) or fallback
+        const token = (fallback.split(/\s+/).find(t => /\.\w+$/.test(t)) || fallback).toUpperCase();
+        fetchPredict(token);
       }
-
-      function rewritePrediction(targetDate){
-        // EXACT format requested:
-        // "Prediction For Next Day Date: YYYY-MM-DD : ▲ Price Up (1)"
-        var signal = currentSignalText();
-        elPredNote.textContent = "Prediction For Next Day Date: " + (targetDate || "-") + " : " + signal;
-      }
-
-      function setMarket(openNow, venue){
-        if (elYes) {
-          elYes.textContent = openNow ? "Yes" : "No";
-          elYes.classList.remove("chip--ok","chip--off");
-          elYes.classList.add(openNow ? "chip--ok" : "chip--off");
-        }
-        if (elDisplay) {
-          elDisplay.textContent = "Display Market: " + (openNow ? "Open" : "Closed") + (venue ? " ("+venue+")" : "");
-        }
-      }
-
-      function symbolFromValue(v) {
-        var t = String(v || "").trim();
-        var parts = t.split(/\s+/);
-        // Prefer tokens like RELIANCE.NS
-        for (var i=0;i<parts.length;i++){
-          if (/\.\w+$/.test(parts[i])) return parts[i].toUpperCase();
-        }
-        return t.toUpperCase();
-      }
-
-      var lastRequested = ""; // avoid spamming same symbol
-      function fetchPrediction(sym){
-        sym = (sym || "").trim().toUpperCase();
-        if (!sym || sym === lastRequested) return;
-        lastRequested = sym;
-
-        var url = PRED_BASE.replace(/\/$/, "") + "/predict-next?symbol=" + encodeURIComponent(sym);
-        fetch(url, { mode: "cors" })
-          .then(function(res){ return res.text().then(function(txt){ return {ok:res.ok, txt:txt}; }); })
-          .then(function(r){
-            if (!r.ok) throw new Error("HTTP "+r.status+": "+r.txt);
-            var data = JSON.parse(r.txt);
-            var target = data && data.prediction && data.prediction.target_date || "-";
-            var openNow = !!(data && data.market_meta && data.market_meta.market_open_now);
-            var venue   = (data && data.market_meta && data.market_meta.venue) || "";
-            rewritePrediction(target);
-            setMarket(openNow, venue);
-          })
-          .catch(function(err){
-            console.warn("[enhancer] fetch failed:", err);
-            // Never throw; never block autocomplete/indices
-          });
-      }
-
-      // Debounced trigger so we don't interfere with your app timing
-      var tmr = null;
-      function triggerDebounced(){
-        if (tmr) clearTimeout(tmr);
-        tmr = setTimeout(function(){
-          var v = (input && input.value) ? input.value : (elTicker && elTicker.textContent) || "";
-          if (v) fetchPrediction(symbolFromValue(v));
-        }, 200);
-      }
-
-      // Observe ticker text updates (non-capturing; won't block your handlers)
-      if (elTicker) {
-        var lastTickText = elTicker.textContent;
-        var mo = new MutationObserver(function(){
-          var curr = elTicker.textContent && elTicker.textContent.trim();
-          if (curr && curr !== lastTickText) {
-            lastTickText = curr;
-            triggerDebounced();
-          }
-        });
-        mo.observe(elTicker, { childList: true, characterData: true, subtree: true });
-      }
-
-      // Listen to analyze click & Enter key WITHOUT capture (so your handlers run first)
-      if (btn) btn.addEventListener("click", triggerDebounced);
-      if (input) input.addEventListener("keydown", function(e){ if (e.key === "Enter") triggerDebounced(); });
-
-      // Safety: also trigger once on load in case your app prepopulates a symbol
-      setTimeout(triggerDebounced, 400);
     });
-  });
+    mo.observe(elTicker, { characterData: true, childList: true, subtree: true });
+  }
+
+  // Strategy 2: also hook your Analyze button & Enter key, to ensure we trigger prediction
+  function triggerFromInput() {
+    const v = (input && input.value) ? input.value : (elTicker && elTicker.textContent) || "";
+    // Prefer symbols like TCS.NS if present in input
+    const token = (String(v).split(/\s+/).find(t => /\.\w+$/.test(t)) || v).toUpperCase();
+    if (token) fetchPredict(token);
+  }
+
+  if (btn) {
+    btn.addEventListener("click", () => {
+      // Defer slightly so your app updates #cTicker and OHLC first
+      setTimeout(triggerFromInput, 150);
+    }, { capture: true });
+  }
+
+  if (input) {
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        setTimeout(triggerFromInput, 150);
+      }
+    }, { capture: true });
+  }
 })();
