@@ -1,171 +1,245 @@
-(function () {
-  // ====== Config ======
-  const API = (window.API_BASE || "").replace(/\/+$/, "");   // e.g., "https://stockpricepredictions-api.onrender.com"
-  const MAX_SUGGESTIONS = 8;
-  const DEBOUNCE_MS = 180;
+(function(){
+  const API = window.API_BASE || "";
+  const $ = id => document.getElementById(id);
 
-  // ====== Helpers ======
-  const $ = (id) => document.getElementById(id);
-  const elInput = $("ticker");
-  const elGo = $("go");
-  const elCard = $("card");
-  const elCTicker = $("cTicker");
-  const elOpen = $("cOpen");
-  const elHigh = $("cHigh");
-  const elLow = $("cLow");
-  const elClose = $("cClose");
-  const elSignal = $("cSignal");
-  const elNote = $("predNote");
+  const input = $('ticker');
+  const go = $('go');
+  const box = $('suggestBox');
+  const card = $('card');
 
-  // Suggestions container
-  let elSug = $("suggestions");
-  if (!elSug) {
-    elSug = document.createElement("div");
-    elSug.id = "suggestions";
-    elSug.style.position = "absolute";
-    elSug.style.zIndex = 9999;
-    elSug.style.background = "#0f172a";
-    elSug.style.border = "1px solid #1f2937";
-    elSug.style.borderRadius = "10px";
-    elSug.style.marginTop = "4px";
-    elSug.style.padding = "6px 0";
-    elSug.style.display = "none";
-    elSug.style.maxHeight = "280px";
-    elSug.style.overflowY = "auto";
-    if (elInput && elInput.parentElement) {
-      elInput.parentElement.style.position = "relative";
-      elInput.parentElement.appendChild(elSug);
-    } else {
-      document.body.appendChild(elSug);
-    }
-  }
+  const setText = (id,val)=>{ const el = $(id); if(el) el.textContent = val; };
 
-  function showSuggestions(items) {
-    if (!items || items.length === 0) {
-      elSug.style.display = "none";
-      elSug.innerHTML = "";
-      return;
-    }
-    elSug.innerHTML = "";
-    items.slice(0, MAX_SUGGESTIONS).forEach((q) => {
-      const sym = q.symbol || "";
-      const name = q.shortname || q.longname || q.name || "";
-      const exch = q.exchange || q.exchDisp || "";
-      const li = document.createElement("div");
-      li.style.padding = "8px 12px";
-      li.style.cursor = "pointer";
-      li.style.whiteSpace = "nowrap";
-      li.title = name ? `${name} — ${sym}` : sym;
-      li.innerHTML = `<strong>${sym}</strong> <span style="opacity:.7">${name ? "• " + name : ""}${exch ? " • " + exch : ""}</span>`;
-      li.addEventListener("click", () => {
-        elInput.value = sym;
-        elSug.style.display = "none";
-        elSug.innerHTML = "";
-        run(sym);
-      });
-      li.addEventListener("mouseenter", () => (li.style.background = "rgba(255,255,255,.06)"));
-      li.addEventListener("mouseleave", () => (li.style.background = "transparent"));
-      elSug.appendChild(li);
+  let items = [];
+  let activeIdx = -1;
+  let lastQ = "";
+  let timer = null;
+
+  /* ---------- Suggestions (typeahead) ---------- */
+  function showSuggest(show){ if(!box) return; box.classList.toggle('hidden', !show || items.length === 0); }
+  function clearSuggest(){ items = []; if(box){ box.innerHTML = ""; box.classList.add('hidden'); } activeIdx = -1; }
+  function renderSuggest() {
+    if(!box) return;
+    box.innerHTML = "";
+    items.forEach((it, idx) => {
+      const row = document.createElement('div');
+      row.className = 'suggest-item' + (idx === activeIdx ? ' active' : '');
+      row.setAttribute('role','option');
+      row.innerHTML = `
+        <div class="left">${it.symbol || ''}</div>
+        <div class="right">${(it.shortname || '').slice(0,70)} ${it.exchange ? ' · ' + it.exchange : ''}</div>
+      `;
+      row.addEventListener('mousedown', (e) => { e.preventDefault(); choose(idx); });
+      box.appendChild(row);
     });
-    elSug.style.display = "block";
+    showSuggest(true);
   }
 
-  function debounce(fn, ms) {
-    let t;
-    return (...args) => {
-      clearTimeout(t);
-      t = setTimeout(() => fn(...args), ms);
+  async function fetchSuggest(q){
+    if(!API){ console.warn("API_BASE not set"); return clearSuggest(); }
+    try{
+      const res = await fetch(API + '/suggest?q=' + encodeURIComponent(q));
+      if(!res.ok) throw new Error(await res.text());
+      const data = await res.json();
+      items = (data.results || []).slice(0,10);
+      renderSuggest();
+    }catch(e){
+      console.warn("suggest error:", e.message || e);
+      clearSuggest();
+    }
+  }
+
+  function debounce(fn, ms){
+    return function(...args){
+      clearTimeout(timer);
+      timer = setTimeout(()=>fn.apply(this,args), ms);
     };
   }
 
-  async function fetchSuggestions(q) {
-    const url = `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(q)}&quotesCount=${MAX_SUGGESTIONS}&newsCount=0`;
-    const res = await fetch(url, { cache: "no-store" });
-    if (!res.ok) return [];
-    const data = await res.json().catch(() => ({}));
-    return (data.quotes || []).filter(x => x.symbol);
+  const onType = debounce(() => {
+    const q = (input?.value || '').trim();
+    if (!q || q === lastQ) { if(!q) clearSuggest(); return; }
+    lastQ = q;
+    fetchSuggest(q);
+  }, 200);
+
+  function choose(idx){
+    if (idx < 0 || idx >= items.length) return;
+    const sym = items[idx].symbol;
+    if(input) input.value = sym;
+    clearSuggest();
+    run();
   }
 
-  function fmt(n) {
-    if (n == null || Number.isNaN(n)) return "-";
-    const dp = Math.abs(n) >= 1000 ? 2 : 4;
-    return Number(n).toFixed(dp).replace(/\.?0+$/, (m) => (m === "." ? "" : m));
+  function onKeyDown(e){
+    if (!box || box.classList.contains('hidden')) return;
+    if (e.key === 'ArrowDown') { e.preventDefault(); activeIdx = Math.min(items.length-1, activeIdx+1); renderSuggest(); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); activeIdx = Math.max(0, activeIdx-1); renderSuggest(); }
+    else if (e.key === 'Enter') { if (activeIdx >= 0) { e.preventDefault(); choose(activeIdx); } }
+    else if (e.key === 'Escape') { clearSuggest(); }
   }
 
-  function signal(close, open) {
-    if (close > open) return { text: "UP Bias", cls: "up" };
-    if (close < open) return { text: "DOWN Bias", cls: "down" };
-    return { text: "NEUTRAL", cls: "flat" };
-  }
-
-  async function fetchStock(ticker) {
-    const base = API || ""; // same-origin if not set (but we set it in index.html)
-    const url = `${base}/stock?q=${encodeURIComponent(ticker)}`;
-    const r = await fetch(url, { cache: "no-store" });
-    if (!r.ok) {
-      const msg = await r.text().catch(() => r.statusText);
-      throw new Error(`API ${r.status}: ${msg}`);
+  /* ---------- Signal rendering ---------- */
+  function setSignal(up, bindu){
+    const chip = $('cSignal');
+    if (chip){
+      chip.className = 'chip ' + (up ? 'up' : 'down');
+      chip.textContent = (up ? '▲ Bullish' : '▼ Bearish') + ` • Bindu ${bindu}`;
     }
-    return r.json();
-  }
 
-  async function run(ticker) {
-    try {
-      elCard?.classList.add("hidden");
-      if (elSignal) { elSignal.textContent = "Fetching..."; elSignal.className = "chip"; }
-
-      const data = await fetchStock(ticker);
-
-      elCTicker && (elCTicker.textContent = data.ticker);
-      elOpen && (elOpen.textContent = fmt(data.ohlc.open));
-      elHigh && (elHigh.textContent = fmt(data.ohlc.high));
-      elLow && (elLow.textContent = fmt(data.ohlc.low));
-      elClose && (elClose.textContent = fmt(data.ohlc.close));
-
-      const sig = signal(data.ohlc.close, data.ohlc.open);
-      if (elSignal) {
-        elSignal.textContent = sig.text;
-        elSignal.className = `chip ${sig.cls}`;
-      }
-
-      if (elNote) {
-        elNote.textContent = `Used Session: ${data.used_session_date} (${data.exchange_timezone}) • Prediction For: ${data.prediction_date}`;
-      }
-
-      elCard?.classList.remove("hidden");
-    } catch (err) {
-      if (elSignal) { elSignal.textContent = "Error"; elSignal.className = "chip error"; }
-      if (elNote) elNote.textContent = err?.message || "Failed";
-      elCard?.classList.remove("hidden");
+    const note = $('predNote');
+    if (note){
+      note.classList.remove('up','down');
+      note.classList.add(up ? 'up' : 'down');
+      note.textContent = 'Prediction For Next Day: ' + (up ? '▲ Price Up (1)' : '▼ Price Down (0)');
     }
   }
 
-  // Events
-  if (elGo) {
-    elGo.addEventListener("click", () => {
-      const t = (elInput.value || "").trim();
-      if (t) run(t);
-    });
-  }
-  if (elInput) {
-    elInput.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") {
-        const t = (elInput.value || "").trim();
-        elSug.style.display = "none";
-        elSug.innerHTML = "";
-        if (t) run(t);
-      }
-    });
-    const debounced = debounce(async () => {
-      const q = (elInput.value || "").trim();
-      if (!q) { showSuggestions([]); return; }
-      try { showSuggestions(await fetchSuggestions(q)); }
-      catch { showSuggestions([]); }
-    }, DEBOUNCE_MS);
-    elInput.addEventListener("input", debounced);
+  /* ---------- Core run: fetch OHLC + compute bindu ---------- */
+  async function run(){
+    const q = (input?.value||'').trim();
+    if(!q){ alert('Enter a company or ticker'); return; }
 
-    document.addEventListener("click", (e) => {
-      if (!elSug.contains(e.target) && e.target !== elInput) elSug.style.display = "none";
-    });
+    if(card) card.classList.remove('hidden');
+    setText('cTicker', 'Fetching… ' + q.toUpperCase());
+    setText('cOpen','-'); setText('cHigh','-'); setText('cLow','-'); setText('cClose','-');
+    const sig = $('cSignal'); if(sig){ sig.className = 'chip'; sig.textContent = 'Loading...'; }
+    setText('predNote', 'Prediction For Next Day: -');
+
+    try{
+      const r = await fetch(API + '/stock?q=' + encodeURIComponent(q));
+      if(!r.ok) throw new Error(await r.text());
+      const d = await r.json();
+
+      const {ticker, open, high, low, close} = d;
+      setText('cTicker', ticker);
+      setText('cOpen', Number(open).toFixed(2));
+      setText('cHigh', Number(high).toFixed(2));
+      setText('cLow',  Number(low).toFixed(2));
+      setText('cClose',Number(close).toFixed(2));
+
+      const o=open%9, h=high%9, l=low%9, c=close%9;
+      const layer1=(o+c)%9, layer2=(h-l+9)%9, bindu=(layer1*layer2)%9;
+      const up = bindu >= 5;
+      setSignal(up, bindu);
+    }catch(e){
+      setText('cTicker', 'Error');
+      const chip = $('cSignal'); if(chip){ chip.className='chip down'; chip.textContent='Failed to fetch'; }
+      setText('predNote', 'Prediction For Next Day: -');
+      console.error("stock error:", e.message || e);
+    }
   }
+
+  /* ---------- WORLD INDICES: smooth marquee ribbon ---------- */
+  const TICKER_SYMBOLS = [
+    {name:'S&P 500',    sym:'^GSPC'},
+    {name:'Dow Jones',  sym:'^DJI'},
+    {name:'Nasdaq 100', sym:'^NDX'},
+    {name:'FTSE 100',   sym:'^FTSE'},
+    {name:'DAX',        sym:'^GDAXI'},
+    {name:'CAC 40',     sym:'^FCHI'},
+    {name:'Nikkei 225', sym:'^N225'},
+    {name:'Hang Seng',  sym:'^HSI'},
+    {name:'ASX 200',    sym:'^AXJO'},
+    {name:'Sensex',     sym:'^BSESN'},
+    {name:'Nifty 50',   sym:'^NSEI'},
+    {name:'Bank Nifty', sym:'^NSEBANK'}
+  ];
+
+  async function fetchIndex(symObj){
+    try{
+      const r = await fetch(API + '/stock?q=' + encodeURIComponent(symObj.sym));
+      if(!r.ok) throw new Error(await r.text());
+      const d = await r.json();
+      const px = Number(d.close), op = Number(d.open);
+      const chg = px - op, pct = op ? (chg/op*100) : 0;
+      return {
+        name: symObj.name,
+        price: isFinite(px) ? px.toFixed(2) : '-',
+        chg: isFinite(chg) ? chg.toFixed(2) : '0.00',
+        pct: isFinite(pct) ? pct.toFixed(2) : '0.00',
+        up: chg >= 0
+      };
+    }catch(e){
+      return {name:symObj.name, price:'-', chg:'0.00', pct:'0.00', up:false};
+    }
+  }
+
+  async function buildTickerOnce(){
+    const track = document.getElementById('tickerTrack');
+    const viewport = track?.parentElement;
+    if(!track || !viewport) return;
+
+    // get data
+    const rows = [];
+    for(const s of TICKER_SYMBOLS){ /* eslint-disable no-await-in-loop */
+      rows.push(await fetchIndex(s));
+    }
+
+    // build one pass
+    track.innerHTML = '';
+    const makeItem = (d) => {
+      const el = document.createElement('span');
+      el.className = 'ticker-item';
+      el.innerHTML = `
+        <span class="nm">${d.name}</span>
+        <span class="px">${d.price}</span>
+        <span class="chg ${d.up ? 'up' : 'down'}">${d.up ? '▲' : '▼'} ${d.chg} (${d.up?'+':''}${d.pct}%)</span>
+      `;
+      return el;
+    };
+    rows.forEach(d => track.appendChild(makeItem(d)));
+
+    // duplicate until > 2× viewport width for seamless scroll
+    while (track.scrollWidth < viewport.clientWidth * 2.2) {
+      rows.forEach(d => track.appendChild(makeItem(d)));
+    }
+  }
+
+  function startTickerAnimation(){
+    const track = document.getElementById('tickerTrack');
+    if(!track) return;
+
+    let pos = 0;            // translateX in px
+    const speed = 40;       // px per second
+    let last = null;
+    let paused = false;
+
+    const onFrame = (t) => {
+      if (paused) { last = t; requestAnimationFrame(onFrame); return; }
+      if (!last) last = t;
+      const dt = (t - last) / 1000; last = t;
+      pos -= speed * dt;
+
+      const half = track.scrollWidth / 2;
+      if (-pos >= half) pos += half;       // loop seamlessly
+      track.style.transform = `translateX(${pos}px)`;
+      requestAnimationFrame(onFrame);
+    };
+
+    const viewport = track.parentElement;
+    viewport.addEventListener('mouseenter', ()=> paused = true);
+    viewport.addEventListener('mouseleave', ()=> paused = false);
+
+    requestAnimationFrame(onFrame);
+  }
+
+  async function initTicker(){
+    await buildTickerOnce();
+    startTickerAnimation();
+    setInterval(async ()=>{ await buildTickerOnce(); }, 10 * 60 * 1000); // refresh every 10 min
+  }
+
+  /* ---------- Init ---------- */
+  window.addEventListener('load', async () => {
+    initTicker();                       // start the scrolling ribbon
+  });
+
+  if(input){
+    input.addEventListener('input', onType);
+    input.addEventListener('keydown', onKeyDown);
+    input.addEventListener('keydown', e => { if(e.key==='Enter' && (!box || box.classList.contains('hidden'))) run(); });
+    input.addEventListener('blur', () => setTimeout(clearSuggest, 120));
+  }
+  if(go) go.addEventListener('click', run);
+
 })();
