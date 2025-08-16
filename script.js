@@ -1,10 +1,9 @@
-// script.js — autocomplete (working like your ZIP) + OHLC + prediction + ribbon
+// script.js — all calls go through your Render backend to avoid Yahoo/CORS blocks
 (function(){
   // ---------------------------
   // Config & DOM
   // ---------------------------
-  const SUGGEST_STOCK = (window.API_SUGGEST_STOCK || "").replace(/\/$/, "");
-  const PREDICT_BASE  = (window.API_PREDICT || "").replace(/\/$/, "");
+  const API = (window.API_BASE || "").replace(/\/$/, "");
 
   const elInput     = document.getElementById("ticker");
   const elBtn       = document.getElementById("go");
@@ -36,11 +35,11 @@
     if (!v) return v;
     if (v.startsWith("^")) return v;   // index (not used for predict)
     if (/\.\w+$/.test(v)) return v;    // already has suffix
-    return v + ".NS";                  // default NSE like your ZIP
+    return v + ".NS";                  // default NSE
   };
   const showCard = () => elCard && elCard.classList.remove("hidden");
 
-  async function fetchJSON(url) {
+  async function fetchJSON(url){
     const res = await fetch(url, { mode: "cors" });
     const txt = await res.text();
     let j; try { j = JSON.parse(txt); } catch { j = { error: txt }; }
@@ -48,28 +47,11 @@
   }
 
   // ---------------------------
-  // Autocomplete (with Yahoo fallback)
+  // Autocomplete (server-side proxy on Render)
   // ---------------------------
   async function getSuggest(q){
-    // 1) Your working host (previous ZIP behavior)
-    try {
-      const r = await fetchJSON(`${SUGGEST_STOCK}/suggest?q=${encodeURIComponent(q)}`);
-      if (r.ok && Array.isArray(r.json.suggestions)) return r.json.suggestions;
-    } catch(e){ /* ignore */ }
-
-    // 2) Fallback to Yahoo’s public suggest (CORS-enabled)
-    try {
-      const r = await fetch(`https://autoc.finance.yahoo.com/autoc?region=IN&lang=en&query=${encodeURIComponent(q)}`, { mode: "cors" });
-      const j = await r.json();
-      const arr = (j && j.ResultSet && j.ResultSet.Result) || [];
-      return arr.map(it => ({
-        symbol: it.symbol,
-        name: it.name,
-        exch: it.exch,
-        type: it.type
-      }));
-    } catch(e){ /* ignore */ }
-
+    const r = await fetchJSON(`${API}/suggest?q=${encodeURIComponent(q)}`);
+    if (r.ok && Array.isArray(r.json.suggestions)) return r.json.suggestions;
     return [];
   }
 
@@ -121,21 +103,10 @@
   }
 
   // ---------------------------
-  // Quotes for ribbon (use your working host)
-  // ---------------------------
-  async function getQuote(sym){
-    try{
-      const r = await fetchJSON(`${SUGGEST_STOCK}/stock?q=${encodeURIComponent(sym)}`);
-      if (r.ok) return { price: r.json.price, change_pct: r.json.change_pct };
-    }catch(e){}
-    return { price: null, change_pct: null };
-  }
-
-  // ---------------------------
   // Prediction (Render host)
   // ---------------------------
   async function getPredict(sym){
-    const r = await fetchJSON(`${PREDICT_BASE}/predict-next?symbol=${encodeURIComponent(sym)}`);
+    const r = await fetchJSON(`${API}/predict-next?symbol=${encodeURIComponent(sym)}`);
     if (!r.ok) throw new Error(r.json && r.json.error ? r.json.error : "predict-next failed");
     return r.json;
   }
@@ -191,12 +162,18 @@
   if (elInput){ elInput.addEventListener("keydown", (e)=> { if (e.key === "Enter") run(); }); }
 
   // ---------------------------
-  // World indices scrolling ribbon
+  // World indices scrolling ribbon (also via Render)
   // ---------------------------
   const INDICES = [
     "^GSPC", "^DJI", "^NDX", "^FTSE", "^GDAXI", "^FCHI", "^N225", "^HSI", "^AXJO",
     "^BSESN", "^NSEI", "^NSEBANK"
   ];
+
+  async function getQuote(sym){
+    const r = await fetchJSON(`${API}/stock?q=${encodeURIComponent(sym)}`);
+    if (r.ok) return { price: r.json.price, change_pct: r.json.change_pct };
+    return { price: null, change_pct: null };
+  }
 
   async function loadIndices(){
     if (!elTickerTrack) return;
@@ -214,7 +191,7 @@
     // Duplicate for seamless CSS animation
     elTickerTrack.innerHTML = row + row;
 
-    // Restart the animation each refresh (keeps it moving)
+    // Restart animation each refresh (keeps it moving)
     elTickerTrack.style.animation = "none";
     // force reflow
     // eslint-disable-next-line no-unused-expressions
