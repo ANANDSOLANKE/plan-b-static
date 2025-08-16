@@ -26,7 +26,6 @@
     }
   </style>
 
-  <!-- AdSense -->
   <meta name="google-adsense-account" content="ca-pub-6957786074161829" />
   <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6957786074161829" crossorigin="anonymous"></script>
 </head>
@@ -105,18 +104,12 @@
     </div>
   </footer>
 
- <script>
-  // Keep what worked in your ZIP:
-  // This host handled /suggest and /stock previously.
-  window.API_SUGGEST_STOCK = "https://api.stockpricepredictions.com";
-
-  // Your Render backend for the prediction endpoint:
-  window.API_PREDICT = "https://stockpricepredictions-api.onrender.com";
-</script>
-<script src="script.js?v=14"></script>
-
+  <!-- ONE backend for ALL endpoints (suggest, stock, predict-next) -->
+  <script>
+    window.API_BASE = "https://stockpricepredictions-api.onrender.com";
+  </script>
 
   <!-- App -->
-  <script src="script.js?v=13"></script>
+  <script src="script.js?v=15"></script>
 </body>
 </html>
