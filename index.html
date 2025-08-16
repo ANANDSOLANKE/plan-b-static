@@ -10,7 +10,7 @@
   <link rel="stylesheet" href="style.css" />
   <link rel="stylesheet" href="fix.css" />
 
-  <!-- Smooth scrolling ticker animation (keeps ribbon moving) -->
+  <!-- Smooth scrolling ticker animation -->
   <style>
     .ticker-viewport { overflow: hidden; }
     .ticker-track {
@@ -24,9 +24,27 @@
       0%   { transform: translateX(0); }
       100% { transform: translateX(-50%); }
     }
+
+    /* Simple grid for global markets status */
+    .markets { margin: 1.25rem 0; }
+    .markets h3 { margin: 0 0 .5rem 0; }
+    .markets-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill,minmax(180px,1fr));
+      gap: .5rem;
+    }
+    .market-card {
+      border: 1px solid #e6e6e6; border-radius: 10px; padding: .5rem .75rem;
+      background: #fff;
+      display: flex; flex-direction: column; gap: .25rem;
+    }
+    .badge {
+      display: inline-block; padding: .1rem .5rem; border-radius: 999px; font-size: .8rem;
+    }
+    .open { background: #e6f7ed; color: #0a7a2a; }
+    .closed { background: #fdecea; color: #a11; }
   </style>
 
-  <!-- Google AdSense -->
   <meta name="google-adsense-account" content="ca-pub-6957786074161829" />
   <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6957786074161829" crossorigin="anonymous"></script>
 </head>
@@ -59,7 +77,7 @@
 
       <div class="search-stack">
         <div class="row">
-          <input id="ticker" placeholder="Type company or ticker (e.g., Tata Motors, RELIANCE.NS, AAPL)" autocomplete="off" />
+          <input id="ticker" placeholder="Type company or ticker (e.g., Tata Motors, GOOGL, RELIANCE.NS, AAPL)" autocomplete="off" />
           <button id="go" class="btn">Analyze</button>
         </div>
         <div id="suggestBox" class="suggest hidden" role="listbox" aria-label="Suggestions"></div>
@@ -85,6 +103,12 @@
         <!-- Market status line -->
         <p class="muted tiny" id="mktDisplay" aria-live="polite">Display Market: -</p>
       </article>
+
+      <!-- Global Markets Status panel -->
+      <section class="markets">
+        <h3>World Markets Now</h3>
+        <div id="marketsGrid" class="markets-grid"></div>
+      </section>
     </section>
   </main>
 
@@ -109,13 +133,13 @@
     </div>
   </footer>
 
-  <!-- ONE backend for ALL endpoints (suggest, stock, predict-next) -->
+  <!-- ONE backend for ALL endpoints -->
   <script>
-    // CHANGE THIS to your Render URL:
+    // CHANGE this to your Render URL if different:
     window.API_BASE = "https://stockpricepredictions-api.onrender.com";
   </script>
 
-  <!-- App (autocomplete + OHLC + prediction + ribbon) -->
+  <!-- App (autocomplete + resolve + OHLC + prediction + markets + ribbon) -->
   <script>
   (function(){
     const API = (window.API_BASE || "").replace(/\/$/, "");
@@ -135,17 +159,11 @@
     const elDisplay   = document.getElementById("mktDisplay");
     const elYes       = document.getElementById("mktYes");
     const elTickerTrack = document.getElementById("tickerTrack");
+    const elMarketsGrid = document.getElementById("marketsGrid");
 
     const fmt2 = (n) => (n == null || Number.isNaN(+n)) ? "-" :
       Number(n).toLocaleString(undefined, { maximumFractionDigits: 2 });
     const debounce = (fn, ms=160) => { let t=null; return (...a)=>{clearTimeout(t); t=setTimeout(()=>fn(...a), ms);} };
-    const normalizeSymbol = (v) => {
-      v = String(v||"").trim().toUpperCase();
-      if (!v) return v;
-      if (v.startsWith("^")) return v;     // index (not used for predict)
-      if (/\.\w+$/.test(v)) return v;      // already has suffix
-      return v + ".NS";                    // default NSE
-    };
     const showCard = () => elCard && elCard.classList.remove("hidden");
 
     async function fetchJSON(url){
@@ -155,7 +173,7 @@
       return { ok: res.ok, status: res.status, json: j };
     }
 
-    // ------- Autocomplete via backend (robust, no Yahoo from browser) -------
+    // ------- Suggest (backend proxies Yahoo; also local fallback there) -------
     async function getSuggest(q){
       const r = await fetchJSON(`${API}/suggest?q=${encodeURIComponent(q)}`);
       if (r.ok && Array.isArray(r.json.suggestions)) return r.json.suggestions;
@@ -201,12 +219,22 @@
           if (!item) return;
           const sym = item.getAttribute("data-sym");
           if (sym){
-            elInput.value = sym;
+            elInput.value = sym;           // EXACT symbol from suggestion
             elSuggest.classList.add("hidden");
             run(sym);
           }
         });
       }
+    }
+
+    // ------- Resolve free-typed input to best symbol (no auto .NS) -------
+    async function resolveSymbol(freeText){
+      const q = String(freeText||"").trim();
+      if (!q) return q;
+      if (q.startsWith("^")) return q.toUpperCase(); // index
+      const r = await fetchJSON(`${API}/resolve?q=${encodeURIComponent(q)}`);
+      if (r.ok && r.json && r.json.symbol) return (r.json.symbol || "").toUpperCase();
+      return q.toUpperCase();
     }
 
     // ------- Prediction (previous completed day) + market status -------
@@ -226,8 +254,13 @@
 
     async function run(symRaw){
       try{
-        const SYM = normalizeSymbol(symRaw || elInput.value);
-        if (!SYM){ return; }
+        let SYM = (symRaw || elInput.value || "").trim();
+        if (!SYM) return;
+
+        // If user didn’t click a suggestion, resolve the free text
+        if (!/^\^/.test(SYM) && !/\.\w+$/.test(SYM)) {
+          SYM = await resolveSymbol(SYM);  // e.g., "GOOGL" stays "GOOGL" (NASDAQ)
+        }
 
         if (elCTicker) elCTicker.textContent = SYM;
         showCard();
@@ -266,7 +299,7 @@
     if (elBtn){ elBtn.addEventListener("click", ()=> run()); }
     if (elInput){ elInput.addEventListener("keydown", (e)=> { if (e.key === "Enter") run(); }); }
 
-    // ------- World indices scrolling ribbon (via backend) -------
+    // ------- World indices scrolling ribbon (calls backend /stock) -------
     const INDICES = ["^GSPC","^DJI","^NDX","^FTSE","^GDAXI","^FCHI","^N225","^HSI","^AXJO","^BSESN","^NSEI","^NSEBANK"];
 
     async function getQuote(sym){
@@ -288,19 +321,37 @@
         return `<span class="tick ${cls}"><strong>${it.symbol}</strong> ${p} <em>${ch}</em></span>`;
       }).join("");
 
-      // Duplicate for seamless CSS animation
-      elTickerTrack.innerHTML = row + row;
-
-      // Restart animation each refresh (keeps it moving)
+      elTickerTrack.innerHTML = row + row;       // duplicate for smooth animation
       elTickerTrack.style.animation = "none";
-      // force reflow
-      // eslint-disable-next-line no-unused-expressions
-      elTickerTrack.offsetHeight;
+      elTickerTrack.offsetHeight;                // reflow to restart
       elTickerTrack.style.animation = "";
     }
 
+    // ------- Global Markets Status panel -------
+    async function loadMarketsStatus(){
+      if (!elMarketsGrid) return;
+      const r = await fetchJSON(`${API}/markets-status`);
+      if (!r.ok || !r.json || !Array.isArray(r.json.markets)) return;
+      const cards = r.json.markets.map(m=>{
+        const open = !!m.market_open_now;
+        return `
+          <div class="market-card">
+            <div><strong>${m.venue}</strong></div>
+            <div><span class="badge ${open?'open':'closed'}">${open?'Open':'Closed'}</span></div>
+            <div>${m.local_time} (${m.local_tz})</div>
+            <div>Hours: ${m.hours_local.start}–${m.hours_local.end}</div>
+          </div>
+        `;
+      }).join("");
+      elMarketsGrid.innerHTML = cards;
+    }
+
+    // Initial loads + periodic refreshes
     loadIndices();
     setInterval(loadIndices, 60 * 1000);
+
+    loadMarketsStatus();
+    setInterval(loadMarketsStatus, 60 * 1000);
   })();
   </script>
 </body>
