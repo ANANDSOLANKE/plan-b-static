@@ -62,7 +62,7 @@
           <div class="kv"><span>Close</span><strong id="cClose">-</strong></div>
         </div>
 
-        <!-- This line will be replaced to: "Prediction For Next Day Date: YYYY-MM-DD : ▲ Price Up (1)" -->
+        <!-- Will be rewritten to: "Prediction For Next Day Date: YYYY-MM-DD : ▲ Price Up (1)" -->
         <p class="pred-note" id="predNote">Prediction For Next Day Date: - : ▲ Price Up (1)</p>
 
         <!-- Market status line -->
@@ -98,87 +98,107 @@
   </script>
   <script src="script.js"></script>
 
-  <!-- Enhancer: uses Render API to get target date + market open/closed -->
+  <!-- Enhancer: uses Render API to get target date + market open/closed (non-blocking) -->
   <script>
     (function () {
-      const PRED_BASE = "https://stockpricepredictions-api.onrender.com";
-      const elTicker    = document.getElementById("cTicker");
-      const elPredNote  = document.getElementById("predNote");
-      const elSignal    = document.getElementById("cSignal");
-      const elYes       = document.getElementById("mktYes");
-      const elDisplay   = document.getElementById("mktDisplay");
-      const input       = document.getElementById("ticker");
-      const btn         = document.getElementById("go");
-
-      function currentSignalText(){
-        // take the part after the last colon (e.g., "▲ Price Up (1)")
-        const raw = (elSignal && elSignal.textContent) ? elSignal.textContent : (elPredNote.textContent || "");
-        const i = raw.lastIndexOf(":");
-        return (i >= 0 ? raw.slice(i+1) : raw).trim() || "▲";
+      function ready(fn){
+        if (document.readyState === "complete" || document.readyState === "interactive") { setTimeout(fn, 0); }
+        else { document.addEventListener("DOMContentLoaded", fn); }
       }
 
-      function rewritePrediction(targetDate){
-        // EXACT required format:
-        // "Prediction For Next Day Date: YYYY-MM-DD : ▲ Price Up (1)"
-        const signal = currentSignalText();
-        elPredNote.textContent = `Prediction For Next Day Date: ${targetDate || "-"} : ${signal}`;
-      }
+      ready(function(){
+        var PRED_BASE   = "https://stockpricepredictions-api.onrender.com";
+        var elTicker    = document.getElementById("cTicker");
+        var elPredNote  = document.getElementById("predNote");
+        var elSignal    = document.getElementById("cSignal");
+        var elYes       = document.getElementById("mktYes");
+        var elDisplay   = document.getElementById("mktDisplay");
+        var input       = document.getElementById("ticker");
+        var btn         = document.getElementById("go");
 
-      function setMarket(openNow, venue){
-        if (elYes)     elYes.textContent = openNow ? "Yes" : "No";
-        if (elDisplay) elDisplay.textContent = `Display Market: ${openNow ? "Open" : "Closed"}${venue ? " ("+venue+")" : ""}`;
-        // Optional: style chip
-        elYes.classList.toggle("chip--ok", !!openNow);
-        elYes.classList.toggle("chip--off", !openNow);
-      }
+        if (!elPredNote) return;
 
-      async function fetchPrediction(sym){
-        try {
-          const url = PRED_BASE.replace(/\/$/, "") + "/predict-next?symbol=" + encodeURIComponent(sym);
-          const res = await fetch(url, { mode: "cors" });
-          const txt = await res.text();
-          if (!res.ok) throw new Error("HTTP "+res.status+": "+txt);
-          const data = JSON.parse(txt);
-          const target = data?.prediction?.target_date || "-";
-          const openNow = !!(data?.market_meta?.market_open_now);
-          const venue   = data?.market_meta?.venue || "";
-
-          rewritePrediction(target);
-          setMarket(openNow, venue);
-        } catch (e) {
-          console.warn("[enhancer] failed", e);
+        function currentSignalText(){
+          var raw = (elSignal && elSignal.textContent) ? elSignal.textContent : (elPredNote.textContent || "");
+          var i = raw.lastIndexOf(":");
+          return (i >= 0 ? raw.slice(i+1) : raw).trim() || "▲";
         }
-      }
 
-      function symbolFromValue(v) {
-        const t = String(v || "").trim();
-        const token = t.split(/\s+/).find(s => /\.\w+$/.test(s));
-        return (token || t).toUpperCase();
-      }
+        function rewritePrediction(targetDate){
+          var signal = currentSignalText();
+          elPredNote.textContent = "Prediction For Next Day Date: " + (targetDate || "-") + " : " + signal;
+        }
 
-      // Watch when your card updates
-      if (elTicker) {
-        let last = elTicker.textContent;
-        const mo = new MutationObserver(() => {
-          const curr = elTicker.textContent && elTicker.textContent.trim();
-          if (curr && curr !== last) {
-            last = curr;
-            const fallback = (input && input.value) ? input.value : curr;
-            fetchPrediction(symbolFromValue(fallback));
+        function setMarket(openNow, venue){
+          if (elYes) {
+            elYes.textContent = openNow ? "Yes" : "No";
+            elYes.classList.remove("chip--ok","chip--off");
+            elYes.classList.add(openNow ? "chip--ok" : "chip--off");
           }
-        });
-        mo.observe(elTicker, { childList: true, characterData: true, subtree: true });
-      }
+          if (elDisplay) {
+            elDisplay.textContent = "Display Market: " + (openNow ? "Open" : "Closed") + (venue ? " ("+venue+")" : "");
+          }
+        }
 
-      // Also attach to Analyze / Enter to catch first lookup
-      function triggerAfterApp(){
-        setTimeout(() => {
-          const v = (input && input.value) ? input.value : (elTicker && elTicker.textContent) || "";
-          if (v) fetchPrediction(symbolFromValue(v));
-        }, 150);
-      }
-      if (btn)   btn.addEventListener("click", triggerAfterApp, { capture: true });
-      if (input) input.addEventListener("keydown", e => { if (e.key === "Enter") triggerAfterApp(); }, { capture: true });
+        function symbolFromValue(v) {
+          var t = String(v || "").trim();
+          var token = t.split(/\s+/).find(function(s){ return /\.\w+$/.test(s); });
+          return (token || t).toUpperCase();
+        }
+
+        var lastRequested = "";
+        function fetchPrediction(sym){
+          sym = (sym || "").trim().toUpperCase();
+          if (!sym || sym === lastRequested) return;
+          lastRequested = sym;
+
+          var url = PRED_BASE.replace(/\/$/, "") + "/predict-next?symbol=" + encodeURIComponent(sym);
+          fetch(url, { mode: "cors" })
+            .then(function(res){ return res.text().then(function(txt){ return {ok:res.ok, txt:txt}; }); })
+            .then(function(r){
+              if (!r.ok) throw new Error("HTTP "+r.status+": "+r.txt);
+              var data = JSON.parse(r.txt);
+              var target = (data && data.prediction && data.prediction.target_date) || "-";
+              var openNow = !!(data && data.market_meta && data.market_meta.market_open_now);
+              var venue   = (data && data.market_meta && data.market_meta.venue) || "";
+              rewritePrediction(target);
+              setMarket(openNow, venue);
+            })
+            .catch(function(err){
+              console.warn("[enhancer] fetch failed:", err);
+              // never throw
+            });
+        }
+
+        var tmr = null;
+        function triggerDebounced(){
+          if (tmr) clearTimeout(tmr);
+          tmr = setTimeout(function(){
+            var v = (input && input.value) ? input.value : (elTicker && elTicker.textContent) || "";
+            if (v) fetchPrediction(symbolFromValue(v));
+          }, 220); // small delay so your app finishes its own updates
+        }
+
+        // Observe your app's ticker updates (won't block)
+        if (elTicker) {
+          var last = elTicker.textContent;
+          var mo = new MutationObserver(function(){
+            var curr = elTicker.textContent && elTicker.textContent.trim();
+            if (curr && curr !== last) {
+              last = curr;
+              triggerDebounced();
+            }
+          });
+          mo.observe(elTicker, { childList: true, characterData: true, subtree: true });
+        }
+
+        // Let your own handlers run first (no capture)
+        if (btn)   btn.addEventListener("click", function(){ triggerDebounced(); });
+        if (input) input.addEventListener("keydown", function(e){ if (e.key === "Enter") triggerDebounced(); });
+
+        // Safety: try once after load (in case your app preloads a symbol)
+        setTimeout(triggerDebounced, 450);
+      });
     })();
   </script>
 </body>
