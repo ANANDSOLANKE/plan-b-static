@@ -1,19 +1,105 @@
 (function () {
-  const API = (window.API_BASE || "").replace(/\/+$/, ""); // set in index.html
-  const el = (id) => document.getElementById(id);
+  // ====== Config ======
+  const API = (window.API_BASE || "").replace(/\/+$/, "");   // e.g., "https://your-api.onrender.com"
+  const MAX_SUGGESTIONS = 8;
+  const DEBOUNCE_MS = 180;
 
-  const inp = el("ticker");
-  const go  = el("go");
-  const card = el("card");
-  const f = {
-    t: el("cTicker"),
-    o: el("cOpen"),
-    h: el("cHigh"),
-    l: el("cLow"),
-    c: el("cClose"),
-    note: el("predNote"),
-    sig: el("cSignal"),
-  };
+  // ====== Helpers ======
+  const $ = (id) => document.getElementById(id);
+  const elInput = $("ticker");
+  const elGo = $("go");
+  const elCard = $("card");
+  const elCTicker = $("cTicker");
+  const elOpen = $("cOpen");
+  const elHigh = $("cHigh");
+  const elLow = $("cLow");
+  const elClose = $("cClose");
+  const elSignal = $("cSignal");
+  const elNote = $("predNote");
+
+  // Create suggestions container if missing
+  let elSug = $("suggestions");
+  if (!elSug) {
+    elSug = document.createElement("div");
+    elSug.id = "suggestions";
+    elSug.style.position = "absolute";
+    elSug.style.zIndex = 9999;
+    elSug.style.background = "#0f172a";
+    elSug.style.border = "1px solid #1f2937";
+    elSug.style.borderRadius = "10px";
+    elSug.style.marginTop = "4px";
+    elSug.style.padding = "6px 0";
+    elSug.style.display = "none";
+    elSug.style.maxHeight = "280px";
+    elSug.style.overflowY = "auto";
+
+    // Try to place under input
+    if (elInput && elInput.parentElement) {
+      elInput.parentElement.style.position = "relative";
+      elInput.parentElement.appendChild(elSug);
+    } else {
+      document.body.appendChild(elSug);
+    }
+  }
+
+  function showSuggestions(items) {
+    if (!items || items.length === 0) {
+      elSug.style.display = "none";
+      elSug.innerHTML = "";
+      return;
+    }
+    elSug.innerHTML = "";
+    items.slice(0, MAX_SUGGESTIONS).forEach((q) => {
+      const sym = q.symbol || q.symbol || "";
+      const name = q.shortname || q.longname || q.name || "";
+      const exch = q.exchange || q.exchDisp || "";
+      const li = document.createElement("div");
+      li.style.padding = "8px 12px";
+      li.style.cursor = "pointer";
+      li.style.whiteSpace = "nowrap";
+      li.title = name ? `${name} — ${sym}` : sym;
+      li.innerHTML = `<strong>${sym}</strong> <span style="opacity:.7">${name ? "• " + name : ""}${exch ? " • " + exch : ""}</span>`;
+      li.addEventListener("click", () => {
+        elInput.value = sym;
+        elSug.style.display = "none";
+        elSug.innerHTML = "";
+        run(sym);
+      });
+      li.addEventListener("mouseenter", () => (li.style.background = "rgba(255,255,255,.06)"));
+      li.addEventListener("mouseleave", () => (li.style.background = "transparent"));
+      elSug.appendChild(li);
+    });
+    elSug.style.display = "block";
+  }
+
+  function debounce(fn, ms) {
+    let t;
+    return (...args) => {
+      clearTimeout(t);
+      t = setTimeout(() => fn(...args), ms);
+    };
+  }
+
+  async function fetchSuggestions(q) {
+    // Yahoo Finance search API (unofficial, but common)
+    const url = `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(q)}&quotesCount=${MAX_SUGGESTIONS}&newsCount=0`;
+    const res = await fetch(url, { cache: "no-store" });
+    if (!res.ok) return [];
+    const data = await res.json().catch(() => ({}));
+    return (data.quotes || []).filter(x => x.symbol);
+  }
+
+  function fmt(n) {
+    if (n == null || Number.isNaN(n)) return "-";
+    const dp = Math.abs(n) >= 1000 ? 2 : 4;
+    return Number(n).toFixed(dp).replace(/\.?0+$/, (m) => (m === "." ? "" : m));
+  }
+
+  function signal(close, open) {
+    if (close > open) return { text: "UP Bias", cls: "up" };
+    if (close < open) return { text: "DOWN Bias", cls: "down" };
+    return { text: "NEUTRAL", cls: "flat" };
+  }
 
   async function fetchStock(ticker) {
     const url = `${API}/stock?q=${encodeURIComponent(ticker)}`;
@@ -25,60 +111,78 @@
     return r.json();
   }
 
-  function fmt(n) {
-    if (n == null || Number.isNaN(n)) return "-";
-    // keep 2–4 dp depending on magnitude
-    const dp = Math.abs(n) >= 1000 ? 2 : 4;
-    return Number(n).toFixed(dp).replace(/\.?0+$/, (m) => (m === "." ? "" : m));
-  }
-
-  function setSignal(close, open) {
-    if (close > open)      return { text: "UP Bias", cls: "up" };
-    else if (close < open) return { text: "DOWN Bias", cls: "down" };
-    return { text: "NEUTRAL", cls: "flat" };
-  }
-
   async function run(ticker) {
     try {
-      card.classList.add("hidden");
-      f.sig.textContent = "Fetching...";
-      f.sig.className = "chip";
+      elCard?.classList.add("hidden");
+      if (elSignal) {
+        elSignal.textContent = "Fetching...";
+        elSignal.className = "chip";
+      }
 
       const data = await fetchStock(ticker);
 
-      f.t.textContent = data.ticker;
-      f.o.textContent = fmt(data.ohlc.open);
-      f.h.textContent = fmt(data.ohlc.high);
-      f.l.textContent = fmt(data.ohlc.low);
-      f.c.textContent = fmt(data.ohlc.close);
+      elCTicker && (elCTicker.textContent = data.ticker);
+      elOpen && (elOpen.textContent = fmt(data.ohlc.open));
+      elHigh && (elHigh.textContent = fmt(data.ohlc.high));
+      elLow && (elLow.textContent = fmt(data.ohlc.low));
+      elClose && (elClose.textContent = fmt(data.ohlc.close));
 
-      const sig = setSignal(data.ohlc.close, data.ohlc.open);
-      f.sig.textContent = sig.text;
-      f.sig.className = `chip ${sig.cls}`;
+      const sig = signal(data.ohlc.close, data.ohlc.open);
+      if (elSignal) {
+        elSignal.textContent = sig.text;
+        elSignal.className = `chip ${sig.cls}`;
+      }
 
-      // Example note:
-      // Used Session: 2025-08-14 (Asia/Kolkata) • Prediction For: 2025-08-18
-      f.note.textContent =
-        `Used Session: ${data.used_session_date} (${data.exchange_timezone}) • ` +
-        `Prediction For: ${data.prediction_date}`;
+      if (elNote) {
+        elNote.textContent = `Used Session: ${data.used_session_date} (${data.exchange_timezone}) • Prediction For: ${data.prediction_date}`;
+      }
 
-      card.classList.remove("hidden");
+      elCard?.classList.remove("hidden");
     } catch (err) {
-      f.sig.textContent = "Error";
-      f.sig.className = "chip error";
-      f.note.textContent = (err && err.message) ? err.message : "Failed";
-      card.classList.remove("hidden");
+      if (elSignal) { elSignal.textContent = "Error"; elSignal.className = "chip error"; }
+      if (elNote) elNote.textContent = err?.message || "Failed";
+      elCard?.classList.remove("hidden");
     }
   }
 
-  go?.addEventListener("click", () => {
-    const t = (inp.value || "").trim();
-    if (t) run(t);
-  });
-  inp?.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") {
-      const t = (inp.value || "").trim();
+  // ====== Events ======
+  if (elGo) {
+    elGo.addEventListener("click", () => {
+      const t = (elInput.value || "").trim();
       if (t) run(t);
-    }
-  });
+    });
+  }
+  if (elInput) {
+    elInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        const t = (elInput.value || "").trim();
+        elSug.style.display = "none";
+        elSug.innerHTML = "";
+        if (t) run(t);
+      }
+    });
+
+    // Autocomplete on typing (debounced)
+    const debounced = debounce(async () => {
+      const q = (elInput.value || "").trim();
+      if (!q || q.length < 1) {
+        showSuggestions([]);
+        return;
+      }
+      try {
+        const items = await fetchSuggestions(q);
+        showSuggestions(items);
+      } catch {
+        showSuggestions([]);
+      }
+    }, DEBOUNCE_MS);
+
+    elInput.addEventListener("input", debounced);
+    // hide suggestions if clicking elsewhere
+    document.addEventListener("click", (e) => {
+      if (!elSug.contains(e.target) && e.target !== elInput) {
+        elSug.style.display = "none";
+      }
+    });
+  }
 })();
