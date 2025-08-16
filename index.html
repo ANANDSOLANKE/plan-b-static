@@ -61,18 +61,10 @@
           <div class="kv"><span>Low</span><strong id="cLow">-</strong></div>
           <div class="kv"><span>Close</span><strong id="cClose">-</strong></div>
         </div>
-        <p class="pred-note" id="predNote">Prediction For Next Day: -</p>
-      </article>
-    </section>
 
-    <!-- Added: Prediction widget (IDs are unique to avoid conflicts with your app) -->
-    <section class="panel" style="margin-top:1.5rem">
-      <h3>Quick Next-Day Prediction</h3>
-      <div class="row">
-        <input id="pn-symbol" placeholder="AAPL, TCS.NS, RELIANCE.NS" />
-        <button id="pn-go" class="btn">Predict Next Close</button>
-      </div>
-      <div id="pn-result"></div>
+        <!-- This line will be ENHANCED with dates & predicted close by the inline script below -->
+        <p class="pred-note" id="predNote">Prediction For Next Day: ▲ Price Up (1)</p>
+      </article>
     </section>
   </main>
 
@@ -98,75 +90,92 @@
   </footer>
 
   <!-- Your app config + code (unchanged so your existing site stays working) -->
-  <script>window.API_BASE = "https://api.stockpricepredictions.com";</script>
+  <script>
+    // Your main app API (unchanged)
+    window.API_BASE = "https://api.stockpricepredictions.com";
+  </script>
   <script src="script.js"></script>
 
-  <!-- Inline widget logic (uses Render API directly, no conflicts with your app) -->
+  <!-- Inline enhancer: uses your existing search/card, appends DATES from Render API to #predNote -->
   <script>
-    (function(){
-      const API = "https://stockpricepredictions-api.onrender.com"; // backend with /predict-next
-      const input = document.getElementById('pn-symbol');
-      const btn = document.getElementById('pn-go');
-      const out = document.getElementById('pn-result');
+    (function () {
+      // Use your Render API that has /predict-next
+      const PRED_BASE = "https://stockpricepredictions-api.onrender.com";
+
+      const elTicker = document.getElementById("cTicker");
+      const elPredNote = document.getElementById("predNote");
+      const input = document.getElementById("ticker");
+      const btn = document.getElementById("go");
+
+      if (!elPredNote) return;
 
       function fmt(v){
-        if(v == null || Number.isNaN(v)) return '-';
+        if(v == null || Number.isNaN(v)) return "-";
         const n = Number(v);
         if(!Number.isFinite(n)) return String(v);
         return n.toLocaleString(undefined, { maximumFractionDigits: 2 });
       }
 
-      async function fetchPrediction(sym){
-        const url = API.replace(/\/$/, '') + "/predict-next?symbol=" + encodeURIComponent(sym);
-        const res = await fetch(url, { mode: 'cors' });
-        const text = await res.text();
-        if(!res.ok){
-          throw new Error("API " + res.status + ": " + text);
-        }
-        try { return JSON.parse(text); } catch { throw new Error("Non-JSON: " + text); }
-      }
+      function appendDates(data) {
+        if (!data || !data.prediction || !data.previous_day) return;
+        const p = data.prediction;
+        const prev = data.previous_day;
 
-      function render(data){
-        const p = data.prediction || {};
-        const prev = data.previous_day || {};
-        out.innerHTML = `
-          <div class="card">
-            <h4>Prediction for <strong>${p.target_date || '-'}</strong></h4>
-            <div class="grid two">
-              <div>
-                <div class="muted">Based on previous day (OHLC) — ${prev.date || '-'}</div>
-                <ul class="kv">
-                  <li><span>Open</span><b>${fmt(prev.open)}</b></li>
-                  <li><span>High</span><b>${fmt(prev.high)}</b></li>
-                  <li><span>Low</span><b>${fmt(prev.low)}</b></li>
-                  <li><span>Close</span><b>${fmt(prev.close)}</b></li>
-                  <li><span>Volume</span><b>${fmt(prev.volume)}</b></li>
-                </ul>
-              </div>
-              <div class="big-num">
-                <div class="muted">Next-day predicted close</div>
-                <div class="value">${fmt(p.predicted_close)}</div>
-                <div class="muted tiny">Method: ${p.method || '-'}</div>
-              </div>
-            </div>
-          </div>
-        `;
-      }
+        // Keep your original text; append dates + predicted close
+        const base = elPredNote.textContent || "Prediction For Next Day:";
+        const extra = ` — Based on ${prev.date || "-"} → for ${p.target_date || "-"} (Pred Close: ${fmt(p.predicted_close)})`;
 
-      async function run(){
-        const sym = (input && input.value || "RELIANCE.NS").trim().toUpperCase();
-        if(!sym){ out.textContent = "Enter a symbol"; return; }
-        try{
-          out.innerHTML = "<div class='muted'>Loading…</div>";
-          const data = await fetchPrediction(sym);
-          render(data);
-        }catch(err){
-          out.innerHTML = "<div class='card'>" + String(err.message) + "</div>";
+        if (!/— Based on /.test(base)) {
+          elPredNote.textContent = base + extra;
+        } else {
+          elPredNote.textContent = base.replace(/— Based on .+$/, extra);
         }
       }
 
-      if(btn) btn.addEventListener('click', run);
-      if(input) input.addEventListener('keydown', e => { if(e.key === 'Enter') run(); });
+      async function fetchPrediction(sym) {
+        const url = PRED_BASE.replace(/\/$/, "") + "/predict-next?symbol=" + encodeURIComponent(sym);
+        try {
+          const res = await fetch(url, { mode: "cors" });
+          const txt = await res.text();
+          if (!res.ok) throw new Error("HTTP " + res.status + ": " + txt);
+          const data = JSON.parse(txt);
+          appendDates(data);
+        } catch (err) {
+          // silent fail (do not break your existing UI)
+          console.warn("[predict-next] failed:", err);
+        }
+      }
+
+      function symbolFromValue(v) {
+        const t = String(v || "").trim();
+        // Prefer tokens like RELIANCE.NS if present
+        const token = t.split(/\s+/).find(s => /\.\w+$/.test(s));
+        return (token || t).toUpperCase();
+      }
+
+      // Watch for your app updating #cTicker
+      if (elTicker) {
+        let last = elTicker.textContent;
+        const mo = new MutationObserver(() => {
+          const curr = elTicker.textContent && elTicker.textContent.trim();
+          if (curr && curr !== last) {
+            last = curr;
+            const fallback = (input && input.value) ? input.value : curr;
+            fetchPrediction(symbolFromValue(fallback));
+          }
+        });
+        mo.observe(elTicker, { characterData: true, childList: true, subtree: true });
+      }
+
+      // Also trigger after clicks/Enter so we catch the very first load
+      function triggerLater() {
+        setTimeout(() => {
+          const v = (input && input.value) ? input.value : (elTicker && elTicker.textContent) || "";
+          if (v) fetchPrediction(symbolFromValue(v));
+        }, 150);
+      }
+      if (btn) btn.addEventListener("click", triggerLater, { capture: true });
+      if (input) input.addEventListener("keydown", e => { if (e.key === "Enter") triggerLater(); }, { capture: true });
     })();
   </script>
 </body>
