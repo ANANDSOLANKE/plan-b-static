@@ -1,3 +1,4 @@
+
 <!doctype html>
 <html lang="en">
 <head>
@@ -8,22 +9,19 @@
 
   <link rel="icon" type="image/png" href="logo.png" />
   <link rel="stylesheet" href="style.css" />
-  <!-- Footer/Ticker overlap fix -->
   <link rel="stylesheet" href="fix.css" />
 
-  <!-- Google AdSense (Auto Ads only) -->
   <meta name="google-adsense-account" content="ca-pub-6957786074161829" />
   <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6957786074161829" crossorigin="anonymous"></script>
 </head>
 <body>
-  <!-- Header -->
   <header class="site-header">
     <div class="wrap header-row">
       <div class="brand">
         <img class="logo" src="logo.png" alt="Stock Price Predictions Logo" />
         <div>
           <h1>Shree Yantra <span>Stock Predictor</span></h1>
-          <p class="tag">Vedic-inspired signals &bull; Real OHLC &bull; Free</p>
+          <p class="tag">Vedic-inspired signals • Real OHLC • Free</p>
         </div>
       </div>
       <nav class="nav">
@@ -36,11 +34,10 @@
     </div>
   </header>
 
-  <!-- Main -->
   <main class="wrap">
     <section class="panel">
       <h2 class="hero-title">Find a stock. See today’s OHLC and a mystical hint for tomorrow.</h2>
-      <p class="lede">Type a company or ticker to get live OHLC data and our Sree Yantra based next-day signal.</p>
+      <p class="lede">Type a company or ticker to get live OHLC data and our Shree Yantra based next-day signal.</p>
 
       <div class="search-stack">
         <div class="row">
@@ -53,8 +50,10 @@
       <article id="card" class="card hidden" aria-live="polite">
         <header class="card-head">
           <h3 id="cTicker">-</h3>
+          <span id="mktYes" class="chip" title="Market open now?">-</span>
           <div id="cSignal" class="chip">Awaiting...</div>
         </header>
+
         <div class="ohlc">
           <div class="kv"><span>Open</span><strong id="cOpen">-</strong></div>
           <div class="kv"><span>High</span><strong id="cHigh">-</strong></div>
@@ -62,23 +61,21 @@
           <div class="kv"><span>Close</span><strong id="cClose">-</strong></div>
         </div>
 
-        <!-- This line will be ENHANCED with dates & predicted close by the inline script below -->
-        <p class="pred-note" id="predNote">Prediction For Next Day: ▲ Price Up (1)</p>
+        <p class="pred-note" id="predNote">Prediction For Next Day Date: - : ▲ Price Up (1)</p>
+        <p class="muted tiny" id="mktDisplay" aria-live="polite">Display Market: -</p>
       </article>
     </section>
   </main>
 
-  <!-- Global indices scrolling ribbon (above footer) -->
   <div class="ticker" aria-label="Global market ticker">
     <div class="wrap ticker-viewport">
       <div class="ticker-track" id="tickerTrack"></div>
     </div>
   </div>
 
-  <!-- Footer -->
   <footer class="footer">
     <div class="wrap footer-content">
-      <p>© 2025 StockPricePredictions.com &bull; Signals are informational only &bull; <a href="privacy.html" target="_blank" rel="noopener">Privacy</a></p>
+      <p>© 2025 StockPricePredictions.com • Signals are informational only • <a href="privacy.html" target="_blank" rel="noopener">Privacy</a></p>
       <div class="social-icons">
         <a href="#" target="_blank" rel="noopener" aria-label="Facebook"><img src="icons/facebook.svg" alt="Facebook"></a>
         <a href="#" target="_blank" rel="noopener" aria-label="Twitter"><img src="icons/twitter.svg" alt="Twitter"></a>
@@ -89,94 +86,11 @@
     </div>
   </footer>
 
-  <!-- Your app config + code (unchanged so your existing site stays working) -->
-  <script>
-    // Your main app API (unchanged)
-    window.API_BASE = "https://api.stockpricepredictions.com";
-  </script>
+  <!-- Keep your existing API for suggest/stock -->
+  <script>window.API_BASE = "https://api.stockpricepredictions.com";</script>
   <script src="script.js"></script>
 
-  <!-- Inline enhancer: uses your existing search/card, appends DATES from Render API to #predNote -->
-  <script>
-    (function () {
-      // Use your Render API that has /predict-next
-      const PRED_BASE = "https://stockpricepredictions-api.onrender.com";
-
-      const elTicker = document.getElementById("cTicker");
-      const elPredNote = document.getElementById("predNote");
-      const input = document.getElementById("ticker");
-      const btn = document.getElementById("go");
-
-      if (!elPredNote) return;
-
-      function fmt(v){
-        if(v == null || Number.isNaN(v)) return "-";
-        const n = Number(v);
-        if(!Number.isFinite(n)) return String(v);
-        return n.toLocaleString(undefined, { maximumFractionDigits: 2 });
-      }
-
-      function appendDates(data) {
-        if (!data || !data.prediction || !data.previous_day) return;
-        const p = data.prediction;
-        const prev = data.previous_day;
-
-        // Keep your original text; append dates + predicted close
-        const base = elPredNote.textContent || "Prediction For Next Day:";
-        const extra = ` — Based on ${prev.date || "-"} → for ${p.target_date || "-"} (Pred Close: ${fmt(p.predicted_close)})`;
-
-        if (!/— Based on /.test(base)) {
-          elPredNote.textContent = base + extra;
-        } else {
-          elPredNote.textContent = base.replace(/— Based on .+$/, extra);
-        }
-      }
-
-      async function fetchPrediction(sym) {
-        const url = PRED_BASE.replace(/\/$/, "") + "/predict-next?symbol=" + encodeURIComponent(sym);
-        try {
-          const res = await fetch(url, { mode: "cors" });
-          const txt = await res.text();
-          if (!res.ok) throw new Error("HTTP " + res.status + ": " + txt);
-          const data = JSON.parse(txt);
-          appendDates(data);
-        } catch (err) {
-          // silent fail (do not break your existing UI)
-          console.warn("[predict-next] failed:", err);
-        }
-      }
-
-      function symbolFromValue(v) {
-        const t = String(v || "").trim();
-        // Prefer tokens like RELIANCE.NS if present
-        const token = t.split(/\s+/).find(s => /\.\w+$/.test(s));
-        return (token || t).toUpperCase();
-      }
-
-      // Watch for your app updating #cTicker
-      if (elTicker) {
-        let last = elTicker.textContent;
-        const mo = new MutationObserver(() => {
-          const curr = elTicker.textContent && elTicker.textContent.trim();
-          if (curr && curr !== last) {
-            last = curr;
-            const fallback = (input && input.value) ? input.value : curr;
-            fetchPrediction(symbolFromValue(fallback));
-          }
-        });
-        mo.observe(elTicker, { characterData: true, childList: true, subtree: true });
-      }
-
-      // Also trigger after clicks/Enter so we catch the very first load
-      function triggerLater() {
-        setTimeout(() => {
-          const v = (input && input.value) ? input.value : (elTicker && elTicker.textContent) || "";
-          if (v) fetchPrediction(symbolFromValue(v));
-        }, 150);
-      }
-      if (btn) btn.addEventListener("click", triggerLater, { capture: true });
-      if (input) input.addEventListener("keydown", e => { if (e.key === "Enter") triggerLater(); }, { capture: true });
-    })();
-  </script>
+  <!-- Enhancer: uses Render /predict-next for date + market status -->
+  <script src="prediction-enhancer.js?v=1"></script>
 </body>
 </html>
